@@ -5,7 +5,7 @@
     "lib": ["ES2023"],
     "module": "ESNext",
     "skipLibCheck": true,
-     "esModuleInterop": true,     
+    "esModuleInterop": true,
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -13,7 +13,8 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-      "resolveJsonModule": true,   
+    "resolveJsonModule": true,
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
@@ -21,7 +22,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "types": ["react-scripts","msw", "msw/rest", "msw/browser"]
+    "types": ["react-scripts", "msw", "msw/rest", "msw/browser"]
   },
   "include": ["vite.config.ts"]
 }

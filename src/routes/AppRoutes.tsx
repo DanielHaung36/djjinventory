@@ -1,18 +1,52 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route ,Navigate} from 'react-router-dom';
 import ProductsPage from '../features/products/ProductsPage';
-import LoginSimple from '../features/auth/LoginSimple';
+import AuthLayout from '../layouts/AuthLayout';
+import LoginPage from '../features/auth/LoginPage';
+import RegisterPage from '../features/auth/RegisterPage';
+import PasswordResetPage from '../features/auth/PasswordResetPage';
+import RegistrationCompletePage from '../features/auth/RegistrationCompletePage';
+
+import MainLayout from '../layouts/MainLayout';
 import Dashboard from '../features/dashboard/Dashboard';
+
+import InventoryOverviewPage from '../features/inventory/InventoryOverviewPage';
+import InventoryDetailsPage from '../features/inventory/components/InventoryDetailsPage';
+import InventoryShippingPage from '../features/inventory/components/InventoryShippingPage';
 export default function AppRoutes() {
-  const token = localStorage.getItem('token')
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/products" element={<ProductsPage />} />
-        {/* TODO: add other routes */}
-        <Route path="/login" element={<LoginSimple/>}></Route>
-        <Route path='/dashboard' element={token ?  <Dashboard /> : <Navigate to="/login"/>}> </Route>
-        <Route path='/*' element={token ?  <Dashboard /> : <Navigate to="/login"/>}></Route> <Route/>
+   <Routes>
+        {/* ====== 认证模块（无需侧边栏/TopBar） ====== */}
+        <Route element={<AuthLayout />}>
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="reset-password" element={<PasswordResetPage />} />
+          <Route path="registration-complete" element={<RegistrationCompletePage />} />
+        </Route>
+
+        {/* ====== 主应用模块（带侧边栏/TopBar） ====== */}
+        <Route element={<MainLayout />}>
+          {/* 默认重定向 */}
+          <Route index element={<Navigate to="dashboard" replace />} />
+
+          {/* 一级路由 */}
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="products" element={<ProductsPage />} />
+
+          {/* 二级路由组：inventory/* */}
+          <Route path="inventory">
+            <Route index element={<Navigate to="overview" replace />} />
+            <Route path="overview" element={<InventoryOverviewPage />} />
+            <Route path="details" element={<InventoryDetailsPage />} />
+            <Route path="shipping" element={<InventoryShippingPage />} />
+          </Route>
+
+          {/* TODO: 更多二级路由组：orders/*、stores/* … */}
+        </Route>
+
+        {/* ====== 未匹配路由，跳到登录 ====== */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
