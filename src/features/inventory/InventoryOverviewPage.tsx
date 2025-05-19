@@ -1,213 +1,394 @@
-// src/pages/InventoryOverviewPage.tsx
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from "react";
+
+//MRT Imports
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+  type MRT_ColumnDef,
+  MRT_GlobalFilterTextField,
+  MRT_ToggleFiltersButton,
+  MRT_ToggleFullScreenButton, // ← 新增
+  MRT_ShowHideColumnsButton,
+  MRT_ToggleDensePaddingButton,
+} from "material-react-table";
+
+//Material UI Imports
 import {
   Box,
-  Container,
-  Stack,
-  Typography,
-  TextField,
-  MenuItem,
   Button,
-  IconButton,
+  Paper,
+  ListItemIcon,
+  MenuItem,
+  Typography,
+  lighten,
+  Container,
   Breadcrumbs,
   Link,
-  Paper,
-} from '@mui/material';
-import PrintIcon from '@mui/icons-material/Print';
-import DownloadIcon from '@mui/icons-material/Download';
-import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/SearchOutlined';
-import { useReactToPrint } from 'react-to-print';
-import * as XLSX from 'xlsx';
-// —— 一定要命名导入！
-import { MaterialReactTable, type MRT_ColumnDef } from 'material-react-table';
+  Stack,
+  TextField,
+  IconButton,
+} from "@mui/material";
 
-// 定义表格行类型
-interface InventoryItem {
-  code: string;
-  productName: string;
-  totalStock: number;
-  syd: number;
-  bne: number;
-  mel: number;
-  per: number;
-  category: 'Machine' | 'Accessories' | 'Parts';
-  price: number;
-}
+import { useReactToPrint } from "react-to-print";
+import * as XLSX from "xlsx";
+//Icons Imports
+import { AccountCircle, Send } from "@mui/icons-material";
+import {
+  Download as DownloadIcon,
+  Print as PrintIcon,
+  Add as AddIcon,
+  Search as SearchIcon,
+} from "@mui/icons-material";
+//Mock Data
+import { data } from "./makeData";
 
-// 一点示例数据
-const sampleData: InventoryItem[] = [
-  { code: '#12512B', productName: 'LM946', totalStock: 883, syd: 400, bne: 200, mel: 100, per: 183, category: 'Machine',    price: 49.9 },
-  { code: '#12523C', productName: 'LM930', totalStock: 738, syd: 350, bne: 180, mel: 120, per: 88,  category: 'Machine',    price: 34.36 },
-  { code: '#51232A', productName: 'Ruffles', totalStock: 492, syd: 200, bne: 50,  mel: 150, per: 92,  category: 'Accessories', price: 29.74 },
-  { code: '#23534D', productName: 'Paper Clip', totalStock: 922, syd: 300, bne: 400, mel: 100, per: 122, category: 'Accessories', price: 23.06 },
-  { code: '#35622A', productName: 'Doritos', totalStock: 177, syd: 50,  bne: 30,  mel: 20,  per: 77,  category: 'Parts',      price: 87.44 },
-  // …你可以随意再 push 更多行
-];
+export type Employee = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  jobTitle: string;
+  salary: number;
+  startDate: string;
+  signatureCatchPhrase: string;
+  avatar: string;
+};
 
-const InventoryOverviewPage: React.FC = () => {
-  // 1. 数据
-  const [data] = useState<InventoryItem[]>(sampleData);
-
-  // 2. 列定义
-  const columns = useMemo<MRT_ColumnDef<InventoryItem>[]>(
+const Example = () => {
+  const columns = useMemo<MRT_ColumnDef<Employee>[]>(
     () => [
-      { accessorKey: 'code',        header: 'DJJ Code' },
-      { accessorKey: 'productName', header: 'Product Name' },
-      { accessorKey: 'totalStock',  header: 'Total Stock' },
-      { accessorKey: 'syd',         header: 'SYD' },
-      { accessorKey: 'bne',         header: 'BNE' },
-      { accessorKey: 'mel',         header: 'MEL' },
-      { accessorKey: 'per',         header: 'PER' },
       {
-        accessorKey: 'category',
-        header: 'Category',
-        Cell: ({ cell }) => {
-          const val = cell.getValue<string>();
-          const color = val === 'Machine' ? 'warning.main' : val === 'Parts' ? 'info.main' : 'grey.500';
-          return (
-            <Box
-              component="span"
-              sx={{
-                px: 1.2,
-                py: 0.3,
-                borderRadius: 1,
-                bgcolor: color,
-                color: 'common.white',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-              }}
-            >
-              {val}
-            </Box>
-          );
-        },
+        id: "employee", //id used to define `group` column
+        header: "Employee",
+        columns: [
+          {
+            accessorFn: (row) => `${row.firstName} ${row.lastName}`, //accessorFn used to join multiple data into a single cell
+            id: "name", //id is still required when using accessorFn instead of accessorKey
+            header: "Name",
+            size: 250,
+            Cell: ({ renderedCellValue, row }) => (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                }}
+              >
+                <img
+                  alt="avatar"
+                  height={30}
+                  src={row.original.avatar}
+                  loading="lazy"
+                  style={{ borderRadius: "50%" }}
+                />
+                {/* using renderedCellValue instead of cell.getValue() preserves filter match highlighting */}
+                <span>{renderedCellValue}</span>
+              </Box>
+            ),
+          },
+          {
+            accessorKey: "email", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
+            enableClickToCopy: true,
+            filterVariant: "autocomplete",
+            header: "Email",
+            size: 300,
+          },
+        ],
       },
       {
-        accessorKey: 'price',
-        header: 'Price',
-        Cell: ({ cell }) => `$${cell.getValue<number>().toFixed(2)}`,
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ row }) => (
-          <Button size="small" onClick={() => alert(`查看 ${row.getValue('code')}`)}>
-            View ▼
-          </Button>
-        ),
+        id: "id",
+        header: "Job Info",
+        columns: [
+          {
+            accessorKey: "salary",
+            // filterVariant: 'range', //if not using filter modes feature, use this instead of filterFn
+            filterFn: "between",
+            header: "Salary",
+            size: 200,
+            //custom conditional format and styling
+            Cell: ({ cell }) => (
+              <Box
+                component="span"
+                sx={(theme) => ({
+                  backgroundColor:
+                    cell.getValue<number>() < 50_000
+                      ? theme.palette.error.dark
+                      : cell.getValue<number>() >= 50_000 &&
+                        cell.getValue<number>() < 75_000
+                      ? theme.palette.warning.dark
+                      : theme.palette.success.dark,
+                  borderRadius: "0.25rem",
+                  color: "#fff",
+                  maxWidth: "9ch",
+                  p: "0.25rem",
+                })}
+              >
+                {cell.getValue<number>()?.toLocaleString?.("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}
+              </Box>
+            ),
+          },
+          {
+            accessorKey: "jobTitle", //hey a simple column for once
+            header: "Job Title",
+            size: 350,
+          },
+          {
+            accessorFn: (row) => new Date(row.startDate), //convert to Date for sorting and filtering
+            id: "startDate",
+            header: "Start Date",
+            filterVariant: "date",
+            filterFn: "lessThan",
+            sortingFn: "datetime",
+            Cell: ({ cell }) => cell.getValue<Date>()?.toLocaleDateString(), //render Date as a string
+            Header: ({ column }) => <em>{column.columnDef.header}</em>, //custom header markup
+            muiFilterTextFieldProps: {
+              sx: {
+                minWidth: "250px",
+              },
+            },
+          },
+        ],
       },
     ],
     []
   );
 
-  // 3. 过滤 & 打印 & 导出
-  const [globalFilter, setGlobalFilter]     = useState<string>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-    // 1) Create a ref
-    const tableRef = useRef<HTMLDivElement>(null);
+  const table = useMaterialReactTable({
+    columns,
+    data, //data must be memoized or stable (useState, useMemo, defined outside of this component, etc.)
+    enableColumnFilterModes: true,
+    enableColumnOrdering: true,
+    enableGrouping: true,
+    enableColumnPinning: true,
+    enableFacetedValues: true,
+    enableRowActions: true,
+    enableRowSelection: true,
+    enableStickyHeader: true,
+    muiTablePaperProps: {
+      sx: {
+        display: "flex",
+        flexDirection: "column",
+        flex: "1 1 auto",
+        minHeight: 0,
+        overflow: "hidden",
+      },
+    },
+    muiTableContainerProps: {
+      sx: {
+        flex: "1 1 auto",
+        minHeight: 0,
+        overflowY: "auto",
+      },
+    },
+    initialState: {
+      showColumnFilters: true,
+      showGlobalFilter: true,
+      columnPinning: {
+        left: ["mrt-row-expand", "mrt-row-select"],
+        right: ["mrt-row-actions"],
+      },
+    },
+    enableFullScreenToggle: true,
+    paginationDisplayMode: "pages",
+    positionToolbarAlertBanner: "bottom",
+    muiSearchTextFieldProps: {
+      size: "small",
+      variant: "outlined",
+    },
+    muiPaginationProps: {
+      color: "secondary",
+      rowsPerPageOptions: [10, 20, 30],
+      shape: "rounded",
+      variant: "outlined",
+    },
+    renderDetailPanel: ({ row }) => (
+      <Box
+        sx={{
+          alignItems: "center",
+          display: "flex",
+          justifyContent: "space-around",
+          left: "30px",
+          maxWidth: "1000px",
+          position: "sticky",
+          width: "100%",
+        }}
+      >
+        <img
+          alt="avatar"
+          height={200}
+          src={row.original.avatar}
+          loading="lazy"
+          style={{ borderRadius: "50%" }}
+        />
+        <Box sx={{ textAlign: "center" }}>
+          <Typography variant="h4">Signature Catch Phrase:</Typography>
+          <Typography variant="h1">
+            &quot;{row.original.signatureCatchPhrase}&quot;
+          </Typography>
+        </Box>
+      </Box>
+    ),
+    renderRowActionMenuItems: ({ closeMenu }) => [
+      <MenuItem
+        key={0}
+        onClick={() => {
+          // View profile logic...
+          closeMenu();
+        }}
+        sx={{ m: 0 }}
+      >
+        <ListItemIcon>
+          <AccountCircle />
+        </ListItemIcon>
+        View Profile
+      </MenuItem>,
+      <MenuItem
+        key={1}
+        onClick={() => {
+          // Send email logic...
+          closeMenu();
+        }}
+        sx={{ m: 0 }}
+      >
+        <ListItemIcon>
+          <Send />
+        </ListItemIcon>
+        Send Email
+      </MenuItem>,
+    ],
+    renderTopToolbar: ({ table }) => {
+      const handleDeactivate = () => {
+        table.getSelectedRowModel().flatRows.map((row) => {
+          alert("deactivating " + row.getValue("name"));
+        });
+      };
 
-    // 2) Pass it as `contentRef`
-    const handlePrint = useReactToPrint({
-        contentRef: tableRef,
-        documentTitle: 'Inventory Overview',
-        // optionally suppress console errors if you want:
-        suppressErrors: true,
-    });
-  const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
-    XLSX.writeFile(wb, 'inventory.xlsx');
-  };
+      const handleActivate = () => {
+        table.getSelectedRowModel().flatRows.map((row) => {
+          alert("activating " + row.getValue("name"));
+        });
+      };
+
+      const handleContact = () => {
+        table.getSelectedRowModel().flatRows.map((row) => {
+          alert("contact " + row.getValue("name"));
+        });
+      };
+
+      return (
+        <Box
+          sx={(theme) => ({
+            backgroundColor: lighten(theme.palette.background.default, 0.05),
+            display: "flex",
+            gap: "0.5rem",
+            p: 1,
+            justifyContent: "space-between",
+          })}
+        >
+          <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            {/* import MRT sub-components */}
+            <MRT_GlobalFilterTextField table={table} />
+            <MRT_ToggleFiltersButton table={table} />
+            <MRT_ToggleFullScreenButton table={table} />
+            <MRT_ShowHideColumnsButton table={table} />
+            <MRT_ToggleDensePaddingButton table={table} />
+          </Box>
+          <Box>
+            <Box sx={{ display: "flex", gap: "0.5rem" }}>
+              <Button
+                color="error"
+                disabled={!table.getIsSomeRowsSelected()}
+                onClick={handleDeactivate}
+                variant="contained"
+              >
+                Deactivate
+              </Button>
+              <Button
+                color="success"
+                disabled={!table.getIsSomeRowsSelected()}
+                onClick={handleActivate}
+                variant="contained"
+              >
+                Activate
+              </Button>
+              <Button
+                color="info"
+                disabled={!table.getIsSomeRowsSelected()}
+                onClick={handleContact}
+                variant="contained"
+              >
+                Contact
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      );
+    },
+  });
+  const tableRef = useRef(null);
 
   return (
-    <Container
-      maxWidth="xl"
-      sx={{
-        flexGrow: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',    
-      }}
-    >
-    <Paper
-        ref={tableRef}
-        elevation={1}
-        sx={{ flexGrow: 1, overflow: 'hidden', p: 2 }}
+    <>
+      <Container
+        maxWidth={false}
+        sx={{
+          display: "flex",
+          flexGrow: 1,
+          flexDirection: "column",
+          bgcolor: "background.paper",
+          width: "100%",
+          height: "100%",
+        }}
       >
-      {/* 面包屑 + 标题 + 操作 */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Box>
-       <Breadcrumbs
-        component="nav"
-        aria-label="breadcrumb"
-        separator="›"
-        sx={{ fontSize: '0.875rem', mb: 1 }}
-        >
-        <Link underline="hover" color="inherit" href="/dashboard">
-            Dashboard
-        </Link>
-        <Typography color="text.primary">Inventory Overview</Typography>
-        </Breadcrumbs>
-          <Typography variant="h4" mt={1}>Inventory Overview</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />}>+ Ship</Button>
-      </Stack>
+        {/* ─── Breadcrumb + Title + Primary Action ─── */}
+          <Box  sx={{display: "flex", flexDirection:"column",  height:"100%"}} p={1} mb={2}>
+            <Box mb={1} mt={1} sx={{ height:"auto" }}>
+              <Breadcrumbs separator="›">
+                <Link underline="hover" color="inherit" href="/dashboard">
+                  Dashboard
+                </Link>
+                <Typography color="text.primary">Inventory Overview</Typography>
+              </Breadcrumbs>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                mt={1}
+              >
+                <Typography variant="h4">Inventory Overview</Typography>
+                <Button variant="contained" startIcon={<AddIcon />}>
+                  + Ship
+                </Button>
+              </Stack>
+            </Box>
 
-      {/* 筛选行 */}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={2} alignItems="center">
-        <TextField
-          select label="Filter Category" size="small"
-          value={categoryFilter}
-          onChange={e => setCategoryFilter(e.target.value)}
-          sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="Machine">Machine</MenuItem>
-          <MenuItem value="Accessories">Accessories</MenuItem>
-          <MenuItem value="Parts">Parts</MenuItem>
-        </TextField>
-        <TextField
-          size="small" placeholder="Search…"
-          value={globalFilter}
-          onChange={e => setGlobalFilter(e.target.value)}
-          InputProps={{ startAdornment: <SearchIcon color="action" /> }}
-          sx={{ flexGrow: 1, maxWidth: 360 }}
-        />
-        <Stack direction="row" spacing={1}>
-          <IconButton onClick={handlePrint}><PrintIcon /></IconButton>
-          <IconButton onClick={handleExport}><DownloadIcon /></IconButton>
-        </Stack>
-      </Stack>
-
-      {/* 白底卡片 + 表格 */}
-
-        <MaterialReactTable<InventoryItem>
-          columns={columns}
-          data={data}
-          enableGlobalFilter={false}
-          manualFiltering
-          initialState={{ pagination: { pageSize: 10, pageIndex: 0 } }}
-          state={{
-            globalFilter,
-            columnFilters: categoryFilter ? [{ id: 'category', value: categoryFilter }] : [],
-          }}
-          renderTopToolbarCustomActions={() => null}
-          renderBottomToolbar={() => null}
-          muiTableBodyRowProps={({ row }) => ({
-            onClick: () => console.log(row.original),
-            sx: { cursor: 'pointer' },
-          })}
-        />
-      </Paper>
-    </Container>
+            <Box  mb={1}   sx={{
+              display: "flex",        // ← 把它当 flex 容器
+      flex: "1 1 auto",    // 把它拉伸占满剩下空间
+      minHeight: 0,        // flex 子项里通常要加，否则会出现滚动区域不生效的怪异行为
+      overflow: "hidden",  // 选填：如果你想隐藏溢出，或者改成 overflowY: "auto" 让它内部滚动
+    }} >
+              <MaterialReactTable table={table} />
+            </Box>
+          </Box>
+      </Container>
+    </>
   );
 };
 
+//Date Picker Imports - these should just be in your Context Provider
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
+const InventoryOverviewPage = () => (
+  //App.tsx or AppProviders file
+  <LocalizationProvider dateAdapter={AdapterDayjs}>
+    <Example />
+  </LocalizationProvider>
+);
 
-export default InventoryOverviewPage
-InventoryOverviewPage.displayName = "InventoryOverviewPage" //方便以后调试使用
+export default InventoryOverviewPage;

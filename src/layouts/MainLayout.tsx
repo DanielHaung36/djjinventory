@@ -7,6 +7,7 @@ import {
   createTheme,
   CssBaseline,
   Toolbar,
+  useTheme
 } from "@mui/material";
 import TopBar from "./Topbar";
 import SideBar from "./Sidebar";
@@ -65,39 +66,54 @@ const theme = createTheme({
   },
 });
 
+const EXPANDED_UNITS = 30;   // 30 * 8px = 240px
+const COLLAPSED_UNITS = 8;   // 8 * 8px  =  64px
+
+
+
 const MainLayout = memo(() => {
   const [open, setOpen] = useState(true);
-  const drawerWidth = 240;
-  const collapsedWidth = 64;
+    const muiTheme = useTheme();
+  const expandedWidth = muiTheme.spacing(EXPANDED_UNITS);
+  const collapsedWidth = muiTheme.spacing(COLLAPSED_UNITS);
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
 
       {/* 用一个全屏 flex 容器包住整个布局 */}
-      <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      <Box sx={{ display: "flex", height: "100vh", overflow: "hidden"  }}>
         <TopBar open={open} onToggle={() => setOpen(o => !o)} />
         <SideBar open={open} onToggle={() => setOpen(o => !o)} />
 
         {/* 主区：flexGrow 撑满剩余 */}
         <Box
+          mt={"4rem"}
           component="main"
           sx={{
             flexGrow: 1,
-            // 顶部偏移
-            // 左侧偏移
-            // ml: open ? `${drawerWidth}px` : `${collapsedWidth}px`,
-            p: 3,
+            p: "0 4",
             display: "flex",
+            bgcolor: "background.default",
             flexDirection: "column",
-            height: '100vh',      
+              transition: muiTheme.transitions.create(["margin"], {
+                easing: muiTheme.transitions.easing.sharp,
+                duration: muiTheme.transitions.duration.leavingScreen,
+              }),
+            overflow: "hidden",  
+            minWidth: 0,           // ✅ 允许子元素水平缩小 
+            height:`calc(100%-4rem)`,
+            width:'100%'
           }}
         >
           {/* 可选占位 AppBar */}
-          <Toolbar sx={{ display: { xs: "none", md: "block" } }} />
-
+      {/* 1. 固定 4rem 高度的 Header */}
           {/* 这个区域才真正滚动 */}
-          <Box sx={{ flexGrow: 1, overflow: "auto" }}>
+          <Box   sx={{flexGrow: 1, // 占据剩余垂直空间
+              display: "flex", // 关键：让它成为flex容器
+              flexDirection: "column", // 关键：使其子元素（Outlet渲染的页面）可以flexGrow
+              minHeight: 0, //关键：允许在flex列布局中内容收缩以适应滚动
+               }}>
             <Outlet />
           </Box>
         </Box>

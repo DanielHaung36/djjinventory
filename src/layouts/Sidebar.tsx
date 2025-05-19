@@ -46,6 +46,9 @@ interface Section {
   items: MenuItem[];
 }
 
+const EXPANDED_DRAWER_UNITS = 30;  // 30 * 8px = 240px
+const COLLAPSED_DRAWER_UNITS = 8;  //  8 * 8px =  64px
+
 
 // 使用主题的 primary.light/primary.main 代替硬编码灰色
 const StyledNavLink = styled(NavLink)(({ theme }) => ({
@@ -120,6 +123,9 @@ export default memo(function SideBar({
   const { pathname } = useLocation();
   const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
 
+  
+  const expandedW = theme.spacing(EXPANDED_DRAWER_UNITS);
+  const collapsedW = theme.spacing(COLLAPSED_DRAWER_UNITS);
   const toggleExpand = (key: string) =>
     setExpandedKeys((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -223,10 +229,11 @@ export default memo(function SideBar({
       variant="permanent"
       open={open}
       sx={{
-        width: open ? drawerWidth : collapsedWidth,
+        width: { xs: collapsedW, sm: open ? expandedW : collapsedW },
         flexShrink: 0,
         "& .MuiDrawer-paper": {
-          width: open ? drawerWidth : collapsedWidth,
+          boxSizing: "border-box",
+          width: { xs: collapsedW, sm: open ? expandedW : collapsedW },
           overflowX: "hidden",
           transition: theme.transitions.create("width", {
             easing: theme.transitions.easing.sharp,
