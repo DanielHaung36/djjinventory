@@ -1,394 +1,420 @@
-import { useMemo, useRef } from "react";
-
-//MRT Imports
+import React, { useMemo, useRef, useState, createRef } from "react";
 import {
-  MaterialReactTable,
+  Box,
+  IconButton,
+  Dialog,
+  AppBar,
+  Toolbar,
+  Container,
+  Stack,
+  Typography,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableBody,
+  Link,
+    Chip,
+    alpha ,
+      MenuItem,
+} from "@mui/material";
+import { StockDialog } from "./StockDiaog";
+import CloseIcon from "@mui/icons-material/Close";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import {
   useMaterialReactTable,
   type MRT_ColumnDef,
   MRT_GlobalFilterTextField,
   MRT_ToggleFiltersButton,
-  MRT_ToggleFullScreenButton, // ← 新增
   MRT_ShowHideColumnsButton,
   MRT_ToggleDensePaddingButton,
+  MRT_TablePagination,
+  MRT_TableBodyCell,
+  MRT_ToolbarAlertBanner,
+  MRT_TableHeadCell,
+  MRT_ColumnActionMenu,
+  type MRT_Cell,
+
+  flexRender,
 } from "material-react-table";
+import { data as mockData } from "./data/InventoryData";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { AddBox as AddBoxIcon, RemoveCircle as RemoveCircleIcon, Info as InfoIcon } from "@mui/icons-material";
+import type { InventoryRow } from "./data/InventoryData";
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
-//Material UI Imports
-import {
-  Box,
-  Button,
-  Paper,
-  ListItemIcon,
-  MenuItem,
-  Typography,
-  lighten,
-  Container,
-  Breadcrumbs,
-  Link,
-  Stack,
-  TextField,
-  IconButton,
-} from "@mui/material";
-
-import { useReactToPrint } from "react-to-print";
-import * as XLSX from "xlsx";
-//Icons Imports
-import { AccountCircle, Send } from "@mui/icons-material";
-import {
-  Download as DownloadIcon,
-  Print as PrintIcon,
-  Add as AddIcon,
-  Search as SearchIcon,
-} from "@mui/icons-material";
-//Mock Data
-import { data } from "./makeData";
-
-export type Employee = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  jobTitle: string;
-  salary: number;
-  startDate: string;
-  signatureCatchPhrase: string;
-  avatar: string;
+export type InventoryOverview = {
+  id: number;
+  modelName: string;
+  photoUrl?: string;
+  costPrice: number;
+  salePrice: number;
+  targetCustomer?: string;
+  barcode: string;
+  barcodeUrl?: string;
+  createdAt: string;
+  actualQty: number;
+  lockedQty: number;
+  availableQty: number;
 };
 
-const Example = () => {
-  const columns = useMemo<MRT_ColumnDef<Employee>[]>(
+type DialogMode = "in" | "out" | null;
+
+const InventoryOverviewPage: React.FC = () => {
+  const [tableData, setTableData] = useState<InventoryRow[]>(mockData);
+  const [dialogMode, setDialogMode] = useState<DialogMode>(null);
+  const [currentProduct, setCurrentProduct] =
+    useState<InventoryOverview | null>(null);
+  const [isFs, setIsFs] = useState(false);
+  // 1) 用一个 map 来存每列头的 anchorEl
+  const [columnAnchors, setColumnAnchors] = useState<Record<string, HTMLElement | null>>({});
+  const setAnchorEl = (headerId: string, el: HTMLElement | null) =>
+    setColumnAnchors((prev) => ({ ...prev, [headerId]: el }));
+  const openDialog = (mode: DialogMode, product: InventoryOverview) => {
+    setDialogMode(mode);
+    setCurrentProduct(product);
+  };
+  const closeDialog = () => setDialogMode(null);
+ const columns = useMemo<MRT_ColumnDef<InventoryRow>[]>(
     () => [
       {
-        id: "employee", //id used to define `group` column
-        header: "Employee",
-        columns: [
-          {
-            accessorFn: (row) => `${row.firstName} ${row.lastName}`, //accessorFn used to join multiple data into a single cell
-            id: "name", //id is still required when using accessorFn instead of accessorKey
-            header: "Name",
-            size: 250,
-            Cell: ({ renderedCellValue, row }) => (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                }}
-              >
-                <img
-                  alt="avatar"
-                  height={30}
-                  src={row.original.avatar}
-                  loading="lazy"
-                  style={{ borderRadius: "50%" }}
-                />
-                {/* using renderedCellValue instead of cell.getValue() preserves filter match highlighting */}
-                <span>{renderedCellValue}</span>
-              </Box>
-            ),
-          },
-          {
-            accessorKey: "email", //accessorKey used to define `data` column. `id` gets set to accessorKey automatically
-            enableClickToCopy: true,
-            filterVariant: "autocomplete",
-            header: "Email",
-            size: 300,
-          },
-        ],
+        accessorKey: 'djj_code',
+        header: 'DJJ Code',
       },
       {
-        id: "id",
-        header: "Job Info",
-        columns: [
-          {
-            accessorKey: "salary",
-            // filterVariant: 'range', //if not using filter modes feature, use this instead of filterFn
-            filterFn: "between",
-            header: "Salary",
-            size: 200,
-            //custom conditional format and styling
-            Cell: ({ cell }) => (
-              <Box
-                component="span"
-                sx={(theme) => ({
-                  backgroundColor:
-                    cell.getValue<number>() < 50_000
-                      ? theme.palette.error.dark
-                      : cell.getValue<number>() >= 50_000 &&
-                        cell.getValue<number>() < 75_000
-                      ? theme.palette.warning.dark
-                      : theme.palette.success.dark,
-                  borderRadius: "0.25rem",
-                  color: "#fff",
-                  maxWidth: "9ch",
-                  p: "0.25rem",
-                })}
-              >
-                {cell.getValue<number>()?.toLocaleString?.("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}
-              </Box>
-            ),
-          },
-          {
-            accessorKey: "jobTitle", //hey a simple column for once
-            header: "Job Title",
-            size: 350,
-          },
-          {
-            accessorFn: (row) => new Date(row.startDate), //convert to Date for sorting and filtering
-            id: "startDate",
-            header: "Start Date",
-            filterVariant: "date",
-            filterFn: "lessThan",
-            sortingFn: "datetime",
-            Cell: ({ cell }) => cell.getValue<Date>()?.toLocaleDateString(), //render Date as a string
-            Header: ({ column }) => <em>{column.columnDef.header}</em>, //custom header markup
-            muiFilterTextFieldProps: {
-              sx: {
-                minWidth: "250px",
-              },
-            },
-          },
-        ],
+        accessorKey: 'product_name',
+        header: 'Product Name',
       },
+      {
+        accessorKey: 'manufacturer',
+        header: 'Manufacturer',
+      },
+      {
+        accessorKey: 'model',
+        header: 'Model',
+      },
+      {
+        accessorKey: 'last_update',
+        header: 'Last Update',
+        Cell: ({ cell }) =>
+          new Date(cell.getValue<string>()).toLocaleString(),
+      },
+   {
+      accessorKey: 'category',
+      header: 'Category',
+      enableColumnFilter: true,
+      size: 120,
+      Cell: ({ cell }) => {
+        const val = cell.getValue<InventoryRow['category']>()
+        const colorMap: Record<typeof val, 'warning'|'primary'|'success'|'info'> = {
+          Machine:    'warning',
+          Parts:      'primary',
+          Tools:      'success',
+          Accessories:'info',
+        }
+        return (
+          <Chip
+            label={val}
+            size="small"
+            variant="filled"
+            color={colorMap[val]}
+          />
+        )
+      },
+    },
+      {
+        accessorKey: 'price',
+        header: 'Price',
+        Cell: ({ cell }) => (
+          <Typography>
+            {cell
+              .getValue<number>()
+              .toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+              })}
+          </Typography>
+        ),
+      },
+     {
+      accessorKey: 'regionStore',
+      header: 'Region – Store',
+      size: 180,
+      enableColumnFilter: true,
+    },
+    {
+  accessorKey: 'actualQty',
+  header: '在库量',
+  enableColumnFilter: true,
+  size: 100,
+},
+{
+  accessorKey: 'lockedQty',
+  header: '锁定量',
+  enableColumnFilter: true,
+  size: 100,
+},
+{
+  accessorKey: 'availableQty',
+  header: '可用量',
+  enableColumnFilter: true,
+  size: 100,
+  Cell: ({ cell }) => {
+    const val = cell.getValue<number>()
+    const color = val < 20 ? 'error.main' : 'success.main'
+    return (
+      <Box
+        sx={{
+          border: 2,
+          borderColor: color,
+          borderRadius: '50%',
+          width: 32,
+          height: 32,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          mx: 'auto',
+        }}
+      >
+        <Typography sx={{ color, fontWeight: 'bold' }}>{val}</Typography>
+      </Box>
+    )
+  },
+},
     ],
     []
   );
 
+
+
   const table = useMaterialReactTable({
     columns,
-    data, //data must be memoized or stable (useState, useMemo, defined outside of this component, etc.)
-    enableColumnFilterModes: true,
+    data: tableData,
     enableColumnOrdering: true,
-    enableGrouping: true,
     enableColumnPinning: true,
-    enableFacetedValues: true,
+    enableColumnActions: true,
     enableRowActions: true,
     enableRowSelection: true,
-    enableStickyHeader: true,
-    muiTablePaperProps: {
-      sx: {
-        display: "flex",
-        flexDirection: "column",
-        flex: "1 1 auto",
-        minHeight: 0,
-        overflow: "hidden",
-      },
-    },
-    muiTableContainerProps: {
-      sx: {
-        flex: "1 1 auto",
-        minHeight: 0,
-        overflowY: "auto",
-      },
-    },
+    enableColumnFilters:    true,   // ← 打开列过滤
+    enableColumnFilterModes:true,   // ← 打开多种过滤模式（=、≠、>、<…）
     initialState: {
-      showColumnFilters: true,
       showGlobalFilter: true,
-      columnPinning: {
-        left: ["mrt-row-expand", "mrt-row-select"],
-        right: ["mrt-row-actions"],
-      },
+      showColumnFilters: true,
+        columnPinning: {
+      // 把选择框列钉在左边，操作列钉在右边
+      left:  ['mrt-row-select'],
+      right: ['mrt-row-actions'],
     },
-    enableFullScreenToggle: true,
-    paginationDisplayMode: "pages",
-    positionToolbarAlertBanner: "bottom",
-    muiSearchTextFieldProps: {
-      size: "small",
-      variant: "outlined",
     },
-    muiPaginationProps: {
-      color: "secondary",
+      paginationDisplayMode: 'pages',              
+  muiPaginationProps: {
+      showFirstButton: true,
+      showLastButton: true,
       rowsPerPageOptions: [10, 20, 30],
-      shape: "rounded",
-      variant: "outlined",
-    },
-    renderDetailPanel: ({ row }) => (
-      <Box
-        sx={{
-          alignItems: "center",
-          display: "flex",
-          justifyContent: "space-around",
-          left: "30px",
-          maxWidth: "1000px",
-          position: "sticky",
-          width: "100%",
-        }}
-      >
-        <img
-          alt="avatar"
-          height={200}
-          src={row.original.avatar}
-          loading="lazy"
-          style={{ borderRadius: "50%" }}
-        />
-        <Box sx={{ textAlign: "center" }}>
-          <Typography variant="h4">Signature Catch Phrase:</Typography>
-          <Typography variant="h1">
-            &quot;{row.original.signatureCatchPhrase}&quot;
-          </Typography>
-        </Box>
-      </Box>
-    ),
-    renderRowActionMenuItems: ({ closeMenu }) => [
-      <MenuItem
-        key={0}
-        onClick={() => {
-          // View profile logic...
-          closeMenu();
-        }}
-        sx={{ m: 0 }}
-      >
-        <ListItemIcon>
-          <AccountCircle />
-        </ListItemIcon>
-        View Profile
-      </MenuItem>,
-      <MenuItem
-        key={1}
-        onClick={() => {
-          // Send email logic...
-          closeMenu();
-        }}
-        sx={{ m: 0 }}
-      >
-        <ListItemIcon>
-          <Send />
-        </ListItemIcon>
-        Send Email
-      </MenuItem>,
-    ],
-    renderTopToolbar: ({ table }) => {
-      const handleDeactivate = () => {
-        table.getSelectedRowModel().flatRows.map((row) => {
-          alert("deactivating " + row.getValue("name"));
-        });
-      };
+    // no color prop
+    sx: theme => ({
+      ul: {
+        // default items: very pale green text
+        '& .MuiPaginationItem-root': {
+          color: alpha(theme.palette.success.main, 0.88),
+        },
+        // selected page: a soft green pill
+        '& .Mui-selected': {
+          backgroundColor: alpha(theme.palette.success.main, 0.3),
+          color: theme.palette.common.white,
+        },
+        // hover state: a slightly darker wash  
+        '& .MuiPaginationItem-root:hover': {
+          backgroundColor: alpha(theme.palette.success.main, 0.15),
+        },
+      },
+    })},
+   
+    muiTablePaperProps: { sx: { flex: "1 1 auto", minHeight: 0, } },
+    muiTableContainerProps: { sx: { flex: "1 1 auto", minHeight: 0,  } },
+renderRowActionMenuItems: ({ closeMenu, row }) => [
+    <MenuItem
+    sx={{pl:5 ,pr:5}}
+      key="in"
+      onClick={() => { openDialog('in', row.original); closeMenu(); }}
+    >
+      入库
+    </MenuItem>,
+    <MenuItem
+     sx={{pl:5 ,pr:5}}
+      key="out"
+      onClick={() => { openDialog('out', row.original); closeMenu(); }}
+    >
+      出库
+    </MenuItem>,
+    <MenuItem
+     sx={{pl:5 ,pr:5}}
+      key="info"
+      onClick={() => { /* 查看详情逻辑 */ closeMenu(); }}
+    >
+      查看详情
+    </MenuItem>,
+  ],
+  });
 
-      const handleActivate = () => {
-        table.getSelectedRowModel().flatRows.map((row) => {
-          alert("activating " + row.getValue("name"));
-        });
-      };
+  // 给每行绑定 ref，以支持 MRT_TableBodyCell 的 sticky 计算
+  const rowRefs = useRef<Record<string, React.RefObject<HTMLTableRowElement>>>({});
 
-      const handleContact = () => {
-        table.getSelectedRowModel().flatRows.map((row) => {
-          alert("contact " + row.getValue("name"));
-        });
-      };
+  // 抽出表格区域，方便复用
+  const tableContent = (
+    <Box sx={{ flex: 1, display: "flex", p: 2 ,m:1,height:"100%" ,bgcolor:"background.paper"}}>
+      <Stack sx={{ width: "100%",height:"100%", }}>
+        <Typography variant="h4" sx={{ mb: 2 }}>
+          Inventory Overview
+        </Typography>
 
-      return (
-        <Box
-          sx={(theme) => ({
-            backgroundColor: lighten(theme.palette.background.default, 0.05),
-            display: "flex",
-            gap: "0.5rem",
-            p: 1,
-            justifyContent: "space-between",
-          })}
-        >
-          <Box sx={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            {/* import MRT sub-components */}
-            <MRT_GlobalFilterTextField table={table} />
+        {/* 顶部工具栏 */}
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1,mt:1 }}>
+          <MRT_GlobalFilterTextField table={table} />
+          <Box>
             <MRT_ToggleFiltersButton table={table} />
-            <MRT_ToggleFullScreenButton table={table} />
             <MRT_ShowHideColumnsButton table={table} />
             <MRT_ToggleDensePaddingButton table={table} />
-          </Box>
-          <Box>
-            <Box sx={{ display: "flex", gap: "0.5rem" }}>
-              <Button
-                color="error"
-                disabled={!table.getIsSomeRowsSelected()}
-                onClick={handleDeactivate}
-                variant="contained"
-              >
-                Deactivate
-              </Button>
-              <Button
-                color="success"
-                disabled={!table.getIsSomeRowsSelected()}
-                onClick={handleActivate}
-                variant="contained"
-              >
-                Activate
-              </Button>
-              <Button
-                color="info"
-                disabled={!table.getIsSomeRowsSelected()}
-                onClick={handleContact}
-                variant="contained"
-              >
-                Contact
-              </Button>
-            </Box>
+            {!isFs && (
+              <IconButton onClick={() => setIsFs(true)} title="全屏">
+                <FullscreenIcon />
+              </IconButton>
+            )}
           </Box>
         </Box>
-      );
-    },
-  });
-  const tableRef = useRef(null);
+
+        {/* 表格 */}
+        <TableContainer sx={{ flex: 1, position: "relative",}}>
+          <Table>
+            <TableHead>
+              {table.getHeaderGroups().map((hg) => (
+                <TableRow key={hg.id}>
+                  {hg.headers.map((header) => (
+                    <MRT_TableHeadCell
+                      key={header.id}
+                      header={header}
+                      table={table}
+                      align="center"
+                      colSpan={header.colSpan}
+                      sx={{ whiteSpace: 'nowrap' }}
+                    >
+                      {!header.isPlaceholder &&
+                        flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                    <MRT_ColumnActionMenu
+                          header={header}
+                          table={table}
+                          anchorEl={columnAnchors[header.id] ?? null}
+                          setAnchorEl={(el) => setAnchorEl(header.id, el)}
+                        />
+                    </MRT_TableHeadCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHead>
+            <TableBody>
+              {table.getRowModel().rows.map((row, rowIndex) => {
+                if (!rowRefs.current[row.id]) {
+                  rowRefs.current[row.id] = createRef<HTMLTableRowElement>();
+                }
+                const rowRef = rowRefs.current[row.id]!;
+                return (
+                  <TableRow
+                    key={row.id}
+                    ref={rowRef}
+                    hover
+                    selected={row.getIsSelected()}
+                  >
+                    {row.getVisibleCells().map((cell, colIndex) => (
+                      <MRT_TableBodyCell
+                        key={cell.id}
+                        cell={cell}
+                        rowRef={rowRef}
+                        staticColumnIndex={colIndex}
+                        staticRowIndex={rowIndex}
+                        table={table}
+                         // 这三个属性可以让超出的文本一行显示并用省略号
+                        sx={{
+                          whiteSpace:    'nowrap',
+                           textAlign:    'center',    // ← 这个让内容居中
+                        }}
+                      />
+                    ))}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* 分页 & 警告栏 */}
+        <MRT_TablePagination table={table} />
+        <Box sx={{ mt: 1 }}>
+          <MRT_ToolbarAlertBanner table={table} />
+        </Box>
+      </Stack>
+    </Box>
+  );
 
   return (
-    <>
-      <Container
-        maxWidth={false}
-        sx={{
-          display: "flex",
-          flexGrow: 1,
-          flexDirection: "column",
-          bgcolor: "background.paper",
-          width: "100%",
-          height: "100%",
-        }}
-      >
-        {/* ─── Breadcrumb + Title + Primary Action ─── */}
-          <Box  sx={{display: "flex", flexDirection:"column",  height:"100%"}} p={1} mb={2}>
-            <Box mb={1} mt={1} sx={{ height:"auto" }}>
-              <Breadcrumbs separator="›">
-                <Link underline="hover" color="inherit" href="/dashboard">
-                  Dashboard
-                </Link>
-                <Typography color="text.primary">Inventory Overview</Typography>
-              </Breadcrumbs>
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-                mt={1}
-              >
-                <Typography variant="h4">Inventory Overview</Typography>
-                <Button variant="contained" startIcon={<AddIcon />}>
-                  + Ship
-                </Button>
-              </Stack>
-            </Box>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      {/* —— 非全屏 模式 —— */}
+      {!isFs && (
+        <Container maxWidth={false} sx={{ display: "flex", flexDirection: "column", height: "100%" ,minHeight:0}}>
+          {tableContent}
+          <StockDialog
+            mode={dialogMode}
+            product={currentProduct}
+            open={!!dialogMode}
+            onClose={closeDialog}
+            onSuccess={(updated) => {
+              setTableData((old) =>
+                old.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
+              );
+            }}
+          />
+        </Container>
+      )}
 
-            <Box  mb={1}   sx={{
-              display: "flex",        // ← 把它当 flex 容器
-      flex: "1 1 auto",    // 把它拉伸占满剩下空间
-      minHeight: 0,        // flex 子项里通常要加，否则会出现滚动区域不生效的怪异行为
-      overflow: "hidden",  // 选填：如果你想隐藏溢出，或者改成 overflowY: "auto" 让它内部滚动
-    }} >
-              <MaterialReactTable table={table} />
-            </Box>
-          </Box>
-      </Container>
-    </>
+      {/* —— 全屏 模式 —— */}
+      <Dialog
+        fullScreen
+        open={isFs}
+        onClose={() => setIsFs(false)}
+        PaperProps={{ sx: { bgcolor: "background.paper" } }}
+      >
+        <AppBar position="sticky">
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={() => setIsFs(false)} title="退出全屏">
+              <CloseIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ ml: 2 }}>
+              Inventory Overview
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Container maxWidth={false} sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          {tableContent}
+          <StockDialog
+            mode={dialogMode}
+            product={currentProduct}
+            open={!!dialogMode}
+            onClose={closeDialog}
+            onSuccess={(updated) => {
+              setTableData((old) =>
+                old.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
+              );
+            }}
+          />
+        </Container>
+      </Dialog>
+    </LocalizationProvider>
   );
 };
-
-//Date Picker Imports - these should just be in your Context Provider
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-
-const InventoryOverviewPage = () => (
-  //App.tsx or AppProviders file
-  <LocalizationProvider dateAdapter={AdapterDayjs}>
-    <Example />
-  </LocalizationProvider>
-);
 
 export default InventoryOverviewPage;
