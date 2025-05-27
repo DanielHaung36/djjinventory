@@ -11,8 +11,10 @@ import MainLayout from '../layouts/MainLayout';
 import Dashboard from '../features/dashboard/Dashboard';
 
 import InventoryOverviewPage from '../features/inventory/InventoryOverviewPage';
-import InventoryDetailsPage from '../features/inventory/components/InventoryDetailsPage';
+import ProductDictionaryPage from '../features/inventory/components/ProductDictionaryPage';
 import InventoryShippingPage from '../features/inventory/components/InventoryShippingPage';
+import InventoryInboundPage from '../features/inventory/components/InventoryInboundPage';
+
 export default function AppRoutes() {
   return (
     <BrowserRouter>
@@ -38,8 +40,9 @@ export default function AppRoutes() {
           <Route path="inventory">
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<InventoryOverviewPage />} />
-            <Route path="details" element={<InventoryDetailsPage />} />
-            <Route path="shipping" element={<InventoryShippingPage />} />
+              {/* <Route path="/inventory/:code" element={<InventoryDetailsPage />} /> */}
+              <Route path="details" element={<ProductDictionaryPage  />} />
+            <Route path="shipping" element={<InventoryInboundPage />} />
           </Route>
 
           {/* TODO: 更多二级路由组：orders/*、stores/* … */}

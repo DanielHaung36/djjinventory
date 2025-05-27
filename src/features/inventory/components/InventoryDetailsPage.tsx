@@ -1,19 +1,27 @@
-import {memo} from "react"
-import type { FC, ReactNode } from "react"
+// InventoryDetailPage.tsx
+import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import ProductDetails from './ProductDetails';
+import {data} from '../data/InventoryData';
 
-export interface IProps {
-    children?:ReactNode;
-    //...这里定义相关类型
-    //扩展相关属性
-}
+export const InventoryDetailPage: React.FC = () => {
+  const { code } = useParams<{ code: string }>();
+  const navigate = useNavigate();
 
-const InventoryDetailsPage:FC<IProps> = memo(function ({ children }) {
-    return (
-        <div className="inventoryDetailsPage">
-            <div>InventoryDetailsPage</div>
-        </div>
-    )
-})
+  // 从你的数据源里找出对应项
+  const product = data.find((p) => p.djj_code === code);
 
-export default InventoryDetailsPage
-InventoryDetailsPage.displayName = "InventoryDetailsPage" //方便以后调试使用
+  if (!product) {
+    return <div>Product {code} not found</div>;
+  }
+
+  return (
+    <ProductDetails
+      open={true}
+      product={product}
+      onClose={() => navigate(-1)} // `-1` 表示回到上一个页面
+    />
+  );
+};
+
+export default InventoryDetailPage;

@@ -102,7 +102,7 @@ const MainLayout = memo(() => {
               }),
             overflow: "hidden",  
             minWidth: 0,           // ✅ 允许子元素水平缩小 
-            height:`calc(100%-4rem)`,
+            height:`calc(100% - 4rem)`,
             width:'100%'
           }}
         >
