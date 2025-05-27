@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, createRef } from "react";
+import React, { useMemo, useRef, useState, createRef,useEffect } from "react";
 import Header from "../../components/Header";
 import Grid from "@mui/material/Grid";
 import {
@@ -16,6 +16,8 @@ import {
   TableRow,
   TableBody,
   Link,
+    Backdrop,
+  CircularProgress,
   Chip,
   alpha,
   MenuItem,
@@ -77,6 +79,13 @@ export type InventoryOverview = {
   availableQty: number;
 };
 
+// 假的异步获取函数
+async function fetchInventory(): Promise<InventoryRow[]> {
+  return new Promise((resolve) =>
+    setTimeout(() => resolve(mockData), 200)
+  );
+}
+
 type DialogMode = "in" | "out" | null;
 const ResponsiveTitle: React.FC = () => {
   const theme = useTheme();
@@ -93,7 +102,7 @@ const ResponsiveTitle: React.FC = () => {
 
 const InventoryOverviewPage: React.FC = () => {
   const navigate = useNavigate();
-
+  const [loading, setLoading] = useState(true);
   const [tableData, setTableData] = useState<InventoryRow[]>(mockData);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [currentProduct, setCurrentProduct] =
@@ -109,6 +118,8 @@ const InventoryOverviewPage: React.FC = () => {
     setDialogMode(mode);
     setCurrentProduct(product);
   };
+
+  
   // Drawer 控制
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<InventoryRow | null>(null);
@@ -265,6 +276,14 @@ const InventoryOverviewPage: React.FC = () => {
     ],
     []
   );
+
+   useEffect(() => {
+    fetchInventory()
+      .then((data) => setTableData(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+
 
   const table = useMaterialReactTable({
     columns,
@@ -500,6 +519,14 @@ const InventoryOverviewPage: React.FC = () => {
 
  return ( 
    <>
+    {/* 全局遮罩 in 前端加载时 */}
+      <Backdrop
+        open={loading}
+        sx={{ zIndex: theme => theme.zIndex.drawer + 1 }}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
+
  <Container
           maxWidth={false}
           sx={{

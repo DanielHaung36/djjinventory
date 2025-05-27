@@ -32,6 +32,7 @@ export const InboundTable: React.FC<SelectedItemsTableProps> = memo(
             <TableCell>Type</TableCell>
             <TableCell>Qty</TableCell>
             <TableCell>VIN (Host)</TableCell>
+            <TableCell>SN</TableCell>     
             <TableCell>Remark</TableCell>
             <TableCell>Action</TableCell>
           </TableRow>
@@ -51,7 +52,7 @@ export const InboundTable: React.FC<SelectedItemsTableProps> = memo(
                 />
               </TableCell>
               <TableCell>
-                {row.type === 'Host' ? (
+                {row.type === 'Host'  ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TextField
                       size="small"
@@ -59,12 +60,7 @@ export const InboundTable: React.FC<SelectedItemsTableProps> = memo(
                       value={row.vin || ''}
                       onChange={(e) => updateItem(row.id, 'vin', e.target.value)}
                     />
-                    <TextField
-                      size="small"
-                      placeholder="Enter Serial"
-                      value={row.serial || ''}
-                      onChange={(e) => updateItem(row.id, 'serial', e.target.value)}
-                    />
+                 
                     <FormControlLabel
                       control={
                         <Switch
@@ -78,6 +74,15 @@ export const InboundTable: React.FC<SelectedItemsTableProps> = memo(
                 ) : (
                   <em>—</em>
                 )}
+              </TableCell>
+             <TableCell>
+                {/* 不管是 Host 还是 Accessory，都用 serial 存 SN */}
+                <TextField
+                  size="small"
+                  placeholder="SN"
+                  value={row.serial ?? ''}
+                  onChange={e => updateItem(row.id, 'serial', e.target.value)}
+                />
               </TableCell>
               <TableCell>
                 <TextField

@@ -1,5 +1,5 @@
 // src/components/ProductDictionaryPage.tsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState,useEffect } from "react";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import {
   MaterialReactTable,
@@ -17,11 +17,21 @@ import {
   alpha,
   MenuItem,
   Stack,
+  Backdrop,
+  CircularProgress,
   Link as MuiLink,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { productData, type Product } from "../data/productData";
-import Header from "../../../components/Header";
+import { productData, type Product } from "../inventory/data/productData";
+import Header from "../../components/Header";
+
+// 假的异步获取函数
+async function fetchInventory(): Promise<Product[]> {
+  return new Promise((resolve) =>
+    setTimeout(() => resolve(productData), 200)
+  );
+}
+
 
 const ProductDictionaryPage: React.FC = () => {
   const theme = useTheme();
@@ -91,26 +101,53 @@ const ProductDictionaryPage: React.FC = () => {
     []
   );
 
+  const [data, setdata] = useState<Product[]>();
+  const [loading, setLoading] = useState(true);
+   useEffect(() => {
+    fetchInventory()
+      .then((data) => setdata(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+
   const table = useMaterialReactTable({
     columns,
-    data: productData,
-    enableColumnOrdering: true,
+    data: data ?? [],
     enableRowActions: true,
+     enableColumnOrdering: false, // 关闭列拖动
+    enableSorting: false, // 关闭全局排序
     enableColumnPinning: true,
     enableColumnActions: true,
+    // enableRowVirtualization: true,
     enableRowSelection: true,
     enableColumnFilters: true, // ← 打开列过滤
     enableColumnFilterModes: true, // ← 打开多种过滤模式（=、≠、>、<…）
     enableStickyHeader: true,
     enableStickyFooter: true,
+    // enableRowVirtualization: true,
     initialState: {
       showGlobalFilter: true,
       showColumnFilters: true,
+      density: 'spacious',
       columnPinning: {
         // 把选择框列钉在左边，操作列钉在右边
         left: ["mrt-row-select"],
         right: ["mrt-row-actions"],
       },
+    },
+    muiExpandButtonProps:{
+      sx:{
+        CollapseProps: { timeout: 0 }
+      }
+    },
+        muiExpandAllButtonProps:{
+
+            sx:{
+        CollapseProps: { timeout: 0 }
+      }
+        },
+    muiSelectCheckboxProps:{
+         disableRipple: true,
     },
     // 给每一行绑定点击事件
     muiTableBodyRowProps: ({ row }) => ({
@@ -123,6 +160,7 @@ const ProductDictionaryPage: React.FC = () => {
     paginationDisplayMode: "pages",
     muiPaginationProps: {
       showFirstButton: true,
+    
       showLastButton: true,
       rowsPerPageOptions: [10, 20, 30],
       // no color prop
@@ -143,7 +181,6 @@ const ProductDictionaryPage: React.FC = () => {
           },
         },
 
-        mb: "2rem",
       }),
     },
 
@@ -216,6 +253,15 @@ const ProductDictionaryPage: React.FC = () => {
   });
 
   return (
+    <>
+        {/* 全局遮罩 in 前端加载时 */}
+      <Backdrop
+        open={loading}
+        sx={{ zIndex: theme => theme.zIndex.drawer + 1 }}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
+
     <Box
       sx={{
         flex: 1,
@@ -233,7 +279,9 @@ const ProductDictionaryPage: React.FC = () => {
         <MaterialReactTable table={table} />
       </Stack>
     </Box>
+   </>
   );
 };
 
 export default ProductDictionaryPage;
+ProductDictionaryPage.displayName = "ProductDictionaryPage";

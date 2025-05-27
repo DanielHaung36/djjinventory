@@ -1,6 +1,10 @@
 import { memo, useState, useCallback } from "react";
 import type { FC, ReactNode } from "react";
 import { styled } from "@mui/material/styles";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import dayjs, { Dayjs } from "dayjs";
 import {
   Box,
   Container,
@@ -36,23 +40,37 @@ import {
   Fade,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import FeedOutlinedIcon from "@mui/icons-material/FeedOutlined";
 import { useDropzone } from "react-dropzone";
 import { DescriptionField } from "../../../components/form/DescriptionField";
 export interface IProps {
   children?: ReactNode;
 }
-import type{ InboundItem } from "../../../components/form/boundModel";
+import type { InboundItem, OutboundItem } from "../../../components/form/boundModel";
 import { InboundTable } from "../../../components/form/InboundTable";
 
-import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
+// 1. 把所有选项集中到一个数组里（英文版）
+const shippingOptions = [
+  { value: "logistics", label: "Logistics" },
+  { value: "express", label: "Express Shipping" },
+  { value: "pickup", label: "Customer Pickup" },
+  { value: "warehouse", label: "Warehouse Delivery" },
+];
+
 // 提交给后端的表单数据结构
-export interface InboundFormPayload {
+/** 出库表单最终提交结构 */
+export interface OutboundFormPayload {
   orderNo: string;
-  headerVin?: string;
-  headerSerial?: string;
-  addLoan?: boolean;
   items: InboundItem[];
   description: string;
+  packingShipping: {
+    trackingNumber: string;
+    driverInfo: string;
+    transportationCost: number;
+    outboundDateTime: string;    // ISO 字符串
+    shippingMethod: string;      // logistics|express|pickup|warehouse
+  };
+  attachments: File[];
 }
 
 // 假数据：订单列表
@@ -75,7 +93,7 @@ const fakeOrderItemsMap: Record<
   ],
 };
 
-const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
+const InventoryOutboundPage: FC<IProps> = memo(function ({ children }) {
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
   // 图片上传
@@ -91,7 +109,7 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
   // 放大图片的锚点
   const [anchorEl, setAnchorEl] = useState(null);
   const [previewImg, setPreviewImg] = useState("");
-
+  const [method, setMethod] = useState<string>(shippingOptions[0].value);
   // 预览大图打开
   const handlePreview = (event: React.MouseEvent<HTMLElement>, file: File) => {
     setAnchorEl(event.currentTarget);
@@ -120,6 +138,11 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
   const [mainItems, setMainItems] = useState<InboundItem[]>([]);
   const [description, setDescription] = useState<string>("");
   const [files, setFiles] = useState<File[]>([]);
+  // 把 state 类型改成 Dayjs | null
+  const [timevalue, setTimeValue] = useState<string>("");
+  const [trackingNumber, setTrackingNumber] = useState<string>("");
+  const [driver, setDriver] = useState<string>("");
+  const [transportation, setTransportationcost] = useState<number>();
 
   // 手动添加
   const [manualOpen, setManualOpen] = useState(false);
@@ -152,7 +175,7 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
 
   // 更新行字段
   const updateItem = useCallback(
-    (id: string, field: keyof InboundItem, v: any) => {
+    (id: string, field: keyof OutboundItem, v: any) => {
       setMainItems((items) =>
         items.map((i) => (i.id === id ? { ...i, [field]: v } : i))
       );
@@ -167,10 +190,17 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
   // 构建并提交表单
   const handleSubmit = async () => {
     // 从 useState 拿到最新值
-    const payload: InboundFormPayload = {
-      orderNo,           // State(orderNo)
-      items: mainItems,  // State(mainItems)
-      description,       // State(description)
+    const payload: OutboundFormPayload = {
+      orderNo, // State(orderNo)
+      items: mainItems, // State(mainItems)
+      description, // State(description)
+      "packingShipping":{
+        trackingNumber,
+        driverInfo:driver,
+        transportationCost:transportation??0,
+        outboundDateTime:timevalue??'',
+        shippingMethod:method
+      },
     };
 
     // 用 FormData 打包 JSON + 文件
@@ -184,7 +214,6 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
     for (const [key, val] of formData.entries()) {
       console.log(key, val);
     }
-
 
     // try {
     //   const res = await fetch("/api/inbound", {
@@ -246,24 +275,26 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
               m: 2,
             }}
           >
-            <Typography variant={isMdUp ? "h4" : "h5"}>Inbound Form</Typography>
-            <Button variant="contained">+ Inbound</Button>
+            <Typography variant={isMdUp ? "h4" : "h5"}>
+              Outbound Form
+            </Typography>
+            <Button variant="contained">+ Outbound</Button>
           </Box>
 
-           <Box
-                display="flex"
-                alignItems="center"
-                sx={{ px: 4, mb: 1 /* 把 mb 从 Typography 挪到这里 */ }}
-                >
-                <FeedOutlinedIcon color="info" />
-                <Typography
-                    variant="h6"
-                    component="span"       // 改成行内元素
-                    sx={{ ml: 1, m: 0 }}   // 左边留点空间，清除默认 margin
-                >
-                    Information
-                </Typography>
-                </Box>
+          <Box
+            display="flex"
+            alignItems="center"
+            sx={{ px: 4, mb: 1 /* 把 mb 从 Typography 挪到这里 */ }}
+          >
+            <FeedOutlinedIcon color="info" />
+            <Typography
+              variant="h6"
+              component="span" // 改成行内元素
+              sx={{ ml: 1, m: 0 }} // 左边留点空间，清除默认 margin
+            >
+              Information
+            </Typography>
+          </Box>
 
           <Box
             sx={{
@@ -448,24 +479,109 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
             //   </TableContainer>
             // </Box>
             // {/* 用统一的 InboundTable 渲染表格 */}
-             <Box
-              sx={{ px: 3, mb: 3, display: "flex", flexDirection: "column" }}
+            <Box
+              sx={{ px: 4, mb: 3, display: "flex", flexDirection: "column" }}
             >
-              <InboundTable items={mainItems} updateItem={updateItem} deleteItem={deleteItem}></InboundTable>
-              </Box>
+              <InboundTable
+                items={mainItems}
+                updateItem={updateItem}
+                deleteItem={deleteItem}
+              ></InboundTable>
+            </Box>
           )}
 
           <Divider sx={{ display: "flex", mb: 3 }} />
 
           {/* Description Section */}
           <Box sx={{ display: "flex", px: 2, mb: 3, flexDirection: "column" }}>
-              <DescriptionField
-                defaultValue={description}
-                onBlur={setDescription}
-              />
+            <DescriptionField
+              defaultValue={description}
+              onBlur={setDescription}
+            />
+          </Box>
+          <Box className="packing" sx={{ px: 4, mb: 2 }}>
+            <Typography variant="h6">
+              Packing & Shipping Info Section
+            </Typography>
+
+              <Box className="driverinfo" display={"flex"} sx={{mt:2}}>
+              <Box sx={{ flex: 1 }}>
+                <TextField
+                  inputMode="text"
+                  label="Tracking Number"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  helperText="Please input a shipping vechile plate."
+                ></TextField>
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <TextField
+                  inputMode="text"
+                  label="Driver Information"
+                  value={driver}
+                  onChange={(e) => setDriver(e.target.value)}
+                  helperText="Please input a shipping driver information."
+                ></TextField>
+              </Box>
+
+              <Box sx={{ flex: 1 }}>
+                <TextField
+                  inputMode="text"
+                  label="Transportation Cost AUD"
+                  value={transportation}
+                  onChange={(e) => setTransportationcost(e.target.value)}
+                  helperText="Please input a shipping transportation cost."
+                ></TextField>
+              </Box>
+            </Box>
+
+            <Box className="delivery" sx={{ display: "flex",mt:3}}>
+              <Box className="outboundtime" sx={{ flex: 2,paddingRight:1 }}>
+                {/* <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DateTimePicker
+                    label="OutBound Date & Time"
+                    value={timevalue}
+                    onChange={(newValue) => setTimeValue(newValue)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        helperText: "Please select the outbound date and time",
+                      },
+                    }}
+                  />
+                  
+                </LocalizationProvider> */}
+            <TextField
+                        // label="OutBound Date & Time"
+                        type="datetime-local"
+                        size="small"
+                        value={timevalue}
+                        onChange={e => setTimeValue(e.target.value)}
+                        fullWidth
+                        helperText="Please select the outbound date and time"
+                        />
+
+              </Box>
+              <Box sx={{  flex: 1 }}>
+                <TextField
+                  select
+                  label="Shipping Method"
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value)}
+                  helperText="Please select a shipping method."
+                >
+                  {shippingOptions.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+            </Box>
+
+          
           </Box>
 
-  
           <Box sx={{ display: "flex", px: 4, mb: 3, flexDirection: "column" }}>
             {/* Images Section */}
             <Typography variant="h6" sx={{ px: 0, mb: 1 }}>
@@ -717,9 +833,10 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
                 onChange={(e) => setManualQty(Number(e.target.value))}
                 margin="dense"
               />
-            
-                <Box my={"1rem"}>
-                  {manualType === "Host" && (  <Box display={"flex"}>
+
+              <Box my={"1rem"}>
+                {manualType === "Host" && (
+                  <Box display={"flex"}>
                     <TextField
                       sx={{ mt: "0.5rem", mr: "0.5rem" }}
                       fullWidth
@@ -737,18 +854,19 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
                       }
                       label="Add Loan"
                     />
-                  </Box> )}
-                    
-             {(manualType === "Host" || manualType === "Attachment") && (     <TextField
+                  </Box>
+                )}
+
+                {(manualType === "Host" || manualType === "Attachment") && (
+                  <TextField
                     fullWidth
                     label="Serial Number"
                     value={manualSerial}
                     onChange={(e) => setManualSerial(e.target.value)}
                     margin="dense"
                   />
-              
-             )}
-            </Box>
+                )}
+              </Box>
               <TextField
                 fullWidth
                 label="Remark"
@@ -792,5 +910,5 @@ const InventoryInboundPage: FC<IProps> = memo(function ({ children }) {
   );
 });
 
-export default InventoryInboundPage;
-InventoryInboundPage.displayName = "InboundPage";
+export default InventoryOutboundPage;
+InventoryOutboundPage.displayName = "OutboundPage";

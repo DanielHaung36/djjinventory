@@ -2,14 +2,14 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ProductDetails from './ProductDetails';
-import {data} from '../data/InventoryData';
+import {productData} from '../inventory/data/productData';
 
 export const InventoryDetailPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
 
   // 从你的数据源里找出对应项
-  const product = data.find((p) => p.djj_code === code);
+  const product = productData.find((p) => p.djj_code === code);
 
   if (!product) {
     return <div>Product {code} not found</div>;

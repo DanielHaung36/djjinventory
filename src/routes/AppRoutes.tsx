@@ -11,9 +11,11 @@ import MainLayout from '../layouts/MainLayout';
 import Dashboard from '../features/dashboard/Dashboard';
 
 import InventoryOverviewPage from '../features/inventory/InventoryOverviewPage';
-import ProductDictionaryPage from '../features/inventory/components/ProductDictionaryPage';
-import InventoryShippingPage from '../features/inventory/components/InventoryShippingPage';
+import InventoryDetailPage from '../features/products/ProductDetailsPage';
+import ProductDictionaryPage from '../features/products/ProductDictionaryPage';
+import ProductEditPage from '../features/products/ProductEditPage';
 import InventoryInboundPage from '../features/inventory/components/InventoryInboundPage';
+import InventoryOutboundPage from '../features/inventory/components/InventoryoutboundPage';
 
 export default function AppRoutes() {
   return (
@@ -34,15 +36,17 @@ export default function AppRoutes() {
 
           {/* 一级路由 */}
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="products" element={<ProductsPage />} />
+          <Route path="products" element={<ProductDictionaryPage />} />
 
           {/* 二级路由组：inventory/* */}
           <Route path="inventory">
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<InventoryOverviewPage />} />
-              {/* <Route path="/inventory/:code" element={<InventoryDetailsPage />} /> */}
-              <Route path="details" element={<ProductDictionaryPage  />} />
-            <Route path="shipping" element={<InventoryInboundPage />} />
+              <Route path="/inventory/:code" element={<InventoryDetailPage />} />
+              <Route path="/inventory/edit/:code" element={<ProductEditPage />} />
+              {/* <Route path="details" element={<ProductDictionaryPage  />} /> */}
+            <Route path="inbound" element={<InventoryInboundPage />} />
+            <Route path="outbound" element={<InventoryOutboundPage />} />
           </Route>
 
           {/* TODO: 更多二级路由组：orders/*、stores/* … */}

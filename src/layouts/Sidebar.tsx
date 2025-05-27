@@ -36,7 +36,7 @@ const collapsedWidth = 64;
 interface MenuItem {
   key: string;
   label: string;
-  Icon: React.ElementType;
+  Icon?: React.ElementType;
   path?: string;
   children?: MenuItem[];
 }
@@ -64,6 +64,7 @@ const StyledNavLink = styled(NavLink)(({ theme }) => ({
   "&.active > .MuiListItemButton-root:hover": {
     backgroundColor: theme.palette.primary.main,         // 悬停时主色
   },
+
 }));
 
 
@@ -85,9 +86,10 @@ const menuSections: Section[] = [
         label: "Inventory",
         Icon: Inventory2Icon,
         children: [
-          { key: "inv-overview",  label: "Overview", Icon: Inventory2Icon, path: "/inventory/overview" },
-          { key: "inv-details",   label: "Details",  Icon: Inventory2Icon, path: "/inventory/details" },
-          { key: "inv-shipping",  label: "Shipping", Icon: Inventory2Icon, path: "/inventory/shipping" },
+          { key: "inv-overview",  label: "Overview", path: "/inventory/overview" },
+          // { key: "inv-details",   label: "Details", path: "/inventory/details" },
+          { key: "inv-inbound",  label: "InBound",  path: "/inventory/inbound" },
+          { key: "inv-outbound",  label: "OutBound",  path: "/inventory/outbound" },
         ],
       },
       { key: "products",  label: "Products",  Icon: CategoryIcon,     path: "/products" },
@@ -143,7 +145,6 @@ export default memo(function SideBar({
               onClick={() => toggleExpand(item.key)}
             //   selected={parentActive}
               sx={{
-                pl: level * 2 + 1,
                 minWidth: open ? undefined : 0,
                 justifyContent: open ? undefined : "center",
                 "&:hover": {
@@ -158,6 +159,7 @@ export default memo(function SideBar({
                     ? "#333333"
                     : undefined,
                 },
+                fontWeight:400,
                 borderRadius: 1,
               }}
             >
@@ -170,7 +172,7 @@ export default memo(function SideBar({
                     : undefined,
                 }}
               >
-                <item.Icon />
+                 {item?.Icon && <item.Icon />}
               </ListItemIcon>
               {open && (
                 <>
@@ -216,7 +218,7 @@ export default memo(function SideBar({
                 justifyContent: open ? undefined : "center",
               }}
             >
-              <item.Icon />
+             {item?.Icon && <item.Icon />}
             </ListItemIcon>
             {open && <ListItemText primary={item.label} />}
           </ListItemButton>

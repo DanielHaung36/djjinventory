@@ -4,7 +4,7 @@
 export interface InboundItem {
   id: string;
   name: string;
-  type: "Host" | "Accessory";
+  type: "Host" | "Accessory"|"Attatchment";
   qty: number;
   price: number;
   remark?: string;
