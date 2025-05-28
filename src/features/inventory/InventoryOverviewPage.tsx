@@ -3,10 +3,7 @@ import Header from "../../components/Header";
 import Grid from "@mui/material/Grid";
 import {
   Box,
-  IconButton,
-  Dialog,
-  AppBar,
-  Toolbar,
+  Button,
   Container,
   Stack,
   Typography,
@@ -28,21 +25,17 @@ import {
   Drawer,
 } from "@mui/material";
 
+import {
+  Storage
+} from "@mui/icons-material";
+
 import { StockDialog } from "./StockDiaog";
 import CloseIcon from "@mui/icons-material/Close";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import {
   useMaterialReactTable,
   type MRT_ColumnDef,
-  MRT_GlobalFilterTextField,
-  MRT_ToggleFiltersButton,
-  MRT_ShowHideColumnsButton,
-  MRT_ToggleDensePaddingButton,
-  MRT_TablePagination,
-  MRT_TableBodyCell,
-  MRT_ToolbarAlertBanner,
-  MRT_TableHeadCell,
-  MRT_ColumnActionMenu,
+  type MRT_Row,
   MaterialReactTable,
   type MRT_Cell,
   flexRender,
@@ -120,10 +113,18 @@ const InventoryOverviewPage: React.FC = () => {
   // Drawer 控制
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<InventoryRow | null>(null);
-
+    const [validationErrors, setValidationErrors] = useState<
+      Record<string, string | undefined>
+    >({});
   const theme = useTheme();
   // 当屏幕宽度小于600px时，isSmUp = false
   const isSmUp = useMediaQuery(theme.breakpoints.up("sm"));
+  const openDeleteConfirmModal = (row: MRT_Row<InventoryRow>) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      //   deleteUser(row.original.id);
+      console.log(row);
+    }
+  };
 
   const LOW_STOCK_THRESHOLD = 1;
   const closeDialog = () => setDialogMode(null);
@@ -286,6 +287,8 @@ const InventoryOverviewPage: React.FC = () => {
     enableColumnOrdering: false,
     enableRowActions: true,
     enableColumnPinning: true,
+    enableEditing:true,
+    editDisplayMode:'cell',
     enableColumnActions: true,
     enableRowSelection: true,
     enableColumnFilters: true, // ← 打开列过滤
@@ -350,38 +353,84 @@ const InventoryOverviewPage: React.FC = () => {
     muiTableContainerProps: {
       sx: { minHeight: 0, height: "100%", p: 0 },
     },
-    renderRowActionMenuItems: ({ closeMenu, row }) => [
+  renderRowActionMenuItems: ({ row, closeMenu }) => [
+        // <MenuItem
+        //   key="edit"
+        //   onClick={() => {
+        //     closeMenu();
+        //     table.setEditingRow(row); // 这句是核心，开启当前行的编辑模式
+        //   }}
+        // >
+        //   <EditIcon color="primary" sx={{ mr: 1 }} />编辑
+        // </MenuItem>,
+
       <MenuItem
-        sx={{ pl: 5, pr: 5 }}
-        key="in"
-        onClick={() => {
-          openDialog("in", row.original);
-          closeMenu();
-        }}
-      >
-        入库
-      </MenuItem>,
-      <MenuItem
-        sx={{ pl: 5, pr: 5 }}
-        key="out"
-        onClick={() => {
-          openDialog("out", row.original);
-          closeMenu();
-        }}
-      >
-        出库
-      </MenuItem>,
-      <MenuItem
-        sx={{ pl: 5, pr: 5 }}
         key="info"
+        onClick={() => { closeMenu(); 
+          
+          // navigate(`/products/${row.original.djj_code}`); 
+            setSelectedRow(row.original);
+            setDrawerOpen(true);
+        
+        }}
+      ><InfoIcon color="primary" sx={{ mr: 1 }} />详情</MenuItem>,
+      <MenuItem
+        key="in"
+        onClick={() => { openDialog("in", row.original);  closeMenu();}}
+      ><Storage color="info" sx={{ mr: 1 }} />入库</MenuItem>,
+      <MenuItem
+        key="out"
+        onClick={() => { closeMenu(); openDialog("out", row.original); }}
+      ><Storage color="success" sx={{ transform: "scaleX(-1)", mr: 1 }} />出库</MenuItem>,
+      <MenuItem
+        key="delete"
+        onClick={() => { closeMenu(); openDeleteConfirmModal(row); }}
+        sx={{ }}
+      ><DeleteIcon color="error" sx={{ mr: 1 }} />删除</MenuItem>,
+    ],
+    renderTopToolbarCustomActions: ({ table }) => (
+      <Button
+        variant="outlined"
         onClick={() => {
-          /* 查看详情逻辑 */ closeMenu();
-          navigate(`/inventory/${row.original.djj_code}`);
+          table.setCreatingRow(true); //simplest way to open the create row modal with no default values
+          //or you can pass in a row object to set default values with the createRow helper function
+          // table.setCreatingRow(
+          //   createRow(table, {
+          //     //optionally pass in default values for the new row, useful for nested data or other complex scenarios
+          //   }),
+          // );
         }}
       >
-        查看详情
-      </MenuItem>,
-    ],
+        + Create New Inventory
+      </Button>
+    ),
+        onCreatingRowCancel: () => setValidationErrors({}),
+    onCreatingRowSave: ({ values, table }) => {
+      setTableData((prev) => [
+        ...prev||[],
+        {
+          ...values,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+      table.setCreatingRow(null); // 新建后关闭编辑行
+    },
+    onEditingRowCancel: () => setValidationErrors({}),
+    onEditingRowSave: ({ row, table, values }) => {
+      console.log(values);
+      console.log(row);
+      // table.setEditingRow(row); //exit editing mode
+      setTableData((prev) =>
+        prev?.map((row) => (row.djj_code === values.djj_code ? { ...row, ...values } : row))
+      );
+      table.setEditingRow(null); //exit editing mode
+    },
+    muiToolbarAlertBannerProps:{
+      sx:{
+        display:'none'
+      } 
+    },
   });
 
   // // 给每行绑定 ref，以支持 MRT_TableBodyCell 的 sticky 计算
