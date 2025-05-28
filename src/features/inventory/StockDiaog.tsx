@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import type { InventoryRow } from './data/InventoryData';
 
 type DialogMode = 'in' | 'out' | null;
 
@@ -25,10 +26,10 @@ interface InventoryOverview {
 
 interface StockDialogProps {
   mode: DialogMode;
-  product: InventoryOverview | null;
+  product: InventoryRow ;
   open: boolean;
   onClose: () => void;
-  onSuccess: (updated: Partial<InventoryOverview>) => void;
+  onSuccess: (updated: Partial<InventoryRow>) => void;
 }
 
 export const StockDialog: React.FC<StockDialogProps> = ({
@@ -100,7 +101,7 @@ export const StockDialog: React.FC<StockDialogProps> = ({
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
         <DialogTitle sx={{ m: 0, p: 2 }}>
           <Typography variant="h6">
-            {mode === 'in' ? '入库' : '出库'} — {product?.modelName}
+            {mode === 'in' ? '入库' : '出库'} — {product?.product_name}
           </Typography>
           <IconButton
             aria-label="close"

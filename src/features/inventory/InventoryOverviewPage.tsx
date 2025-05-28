@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, createRef,useEffect } from "react";
+import React, { useMemo, useRef, useState, createRef, useEffect } from "react";
 import Header from "../../components/Header";
 import Grid from "@mui/material/Grid";
 import {
@@ -16,7 +16,7 @@ import {
   TableRow,
   TableBody,
   Link,
-    Backdrop,
+  Backdrop,
   CircularProgress,
   Chip,
   alpha,
@@ -81,9 +81,7 @@ export type InventoryOverview = {
 
 // 假的异步获取函数
 async function fetchInventory(): Promise<InventoryRow[]> {
-  return new Promise((resolve) =>
-    setTimeout(() => resolve(mockData), 200)
-  );
+  return new Promise((resolve) => setTimeout(() => resolve(mockData), 200));
 }
 
 type DialogMode = "in" | "out" | null;
@@ -106,7 +104,7 @@ const InventoryOverviewPage: React.FC = () => {
   const [tableData, setTableData] = useState<InventoryRow[]>(mockData);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [currentProduct, setCurrentProduct] =
-    useState<InventoryOverview | null>(null);
+    useState<InventoryRow | null>(null);
   const [isFs, setIsFs] = useState(false);
   // 1) 用一个 map 来存每列头的 anchorEl
   const [columnAnchors, setColumnAnchors] = useState<
@@ -114,12 +112,11 @@ const InventoryOverviewPage: React.FC = () => {
   >({});
   const setAnchorEl = (headerId: string, el: HTMLElement | null) =>
     setColumnAnchors((prev) => ({ ...prev, [headerId]: el }));
-  const openDialog = (mode: DialogMode, product: InventoryOverview) => {
+  const openDialog = (mode: DialogMode, product: InventoryRow) => {
     setDialogMode(mode);
     setCurrentProduct(product);
   };
 
-  
   // Drawer 控制
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<InventoryRow | null>(null);
@@ -277,13 +274,11 @@ const InventoryOverviewPage: React.FC = () => {
     []
   );
 
-   useEffect(() => {
+  useEffect(() => {
     fetchInventory()
       .then((data) => setTableData(data))
       .finally(() => setLoading(false));
   }, []);
-
-
 
   const table = useMaterialReactTable({
     columns,
@@ -408,194 +403,54 @@ const InventoryOverviewPage: React.FC = () => {
       }}
     >
       <Stack sx={{ display: "flex", width: "100%", height: "100%", flex: 1 }}>
-        {/* <Typography sx={{ mb: 2 }}>
-          Inventory Overview
-        </Typography> */}
-
         <Header
           title="Inventory Overview"
           subtitle="Managing the Inventory items"
         ></Header>
-        {/* <ResponsiveTitle /> */}
-        {/* 顶部工具栏 */}
-        {/* <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            mb: 1,
-            mt: 1,
-          }}
-        >
-          <MRT_GlobalFilterTextField table={table} />
-          <Box>
-            <MRT_ToggleFiltersButton table={table} />
-            <MRT_ShowHideColumnsButton table={table} />
-            <MRT_ToggleDensePaddingButton table={table} />
-            {!isFs && (
-              <IconButton onClick={() => setIsFs(true)} title="全屏">
-                <FullscreenIcon />
-              </IconButton>
-            )}
-          </Box>
-        </Box> */}
-
-        {/* 表格 */}
-        {/* <TableContainer sx={{ flex: 1, position: "relative" }}>
-          <Table>
-            <TableHead>
-              {table.getHeaderGroups().map((hg) => (
-                <TableRow key={hg.id}>
-                  {hg.headers.map((header) => (
-                    <MRT_TableHeadCell
-                      key={header.id}
-                      header={header}
-                      table={table}
-                      align="center"
-                      colSpan={header.colSpan}
-                      sx={{ whiteSpace: "nowrap" }}
-                    >
-                      {!header.isPlaceholder &&
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                      <MRT_ColumnActionMenu
-                        header={header}
-                        table={table}
-                        anchorEl={columnAnchors[header.id] ?? null}
-                        setAnchorEl={(el) => setAnchorEl(header.id, el)}
-                      />
-                    </MRT_TableHeadCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHead>
-            <TableBody>
-              {table.getRowModel().rows.map((row, rowIndex) => {
-                if (!rowRefs.current[row.id]) {
-                  rowRefs.current[row.id] = createRef<HTMLTableRowElement>();
-                }
-                const rowRef = rowRefs.current[row.id]!;
-                return (
-                  <TableRow
-                    key={row.id}
-                    ref={rowRef}
-                    hover
-                    selected={row.getIsSelected()}
-                  >
-                    {row.getVisibleCells().map((cell, colIndex) => (
-                      <MRT_TableBodyCell
-                        key={cell.id}
-                        cell={cell}
-                        rowRef={rowRef}
-                        staticColumnIndex={colIndex}
-                        staticRowIndex={rowIndex}
-                        table={table}
-                        // 这三个属性可以让超出的文本一行显示并用省略号
-                        sx={{
-                          whiteSpace: "nowrap",
-                          textAlign: "center", // ← 这个让内容居中
-                        }}
-                      />
-                    ))}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer> */}
-
         <MaterialReactTable table={table} />
-
-        {/* 分页 & 警告栏 */}
-        {/* <MRT_TablePagination table={table} /> */}
-        {/* <Box sx={{ mt: 1 }}>
-          <MRT_ToolbarAlertBanner table={table} />
-        </Box> */}
       </Stack>
     </Box>
   );
 
-
- return ( 
-   <>
-    {/* 全局遮罩 in 前端加载时 */}
+  return (
+    <>
+      {/* 全局遮罩 in 前端加载时 */}
       <Backdrop
         open={loading}
-        sx={{ zIndex: theme => theme.zIndex.drawer + 1 }}
+        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
       >
         <CircularProgress color="inherit" />
       </Backdrop>
 
- <Container
-          maxWidth={false}
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            minHeight: 0,
+      <Container
+        maxWidth={false}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          minHeight: 0,
+        }}
+      >
+        {tableContent}
+        <StockDialog
+          mode={dialogMode}
+          product={currentProduct||{} as InventoryRow}
+          open={!!dialogMode}
+          onClose={closeDialog}
+          onSuccess={(updated) => {
+            setTableData((old) =>
+              old.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
+            );
           }}
-        >
-          {tableContent}
-          <StockDialog
-            mode={dialogMode}
-            product={currentProduct}
-            open={!!dialogMode}
-            onClose={closeDialog}
-            onSuccess={(updated) => {
-              setTableData((old) =>
-                old.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
-              );
-            }}
-          />
-        </Container>
-
+        />
+      </Container>
       <DetailDrawer
         open={drawerOpen}
         row={selectedRow}
         onClose={() => setDrawerOpen(false)}
       />
-      <Dialog
-        fullScreen
-        open={isFs}
-        onClose={() => setIsFs(false)}
-        PaperProps={{ sx: { bgcolor: "background.paper" } }}
-      >
-        <AppBar position="sticky">
-          <Toolbar>
-            <IconButton
-              edge="start"
-              color="inherit"
-              onClick={() => setIsFs(false)}
-              title="退出全屏"
-            >
-              <CloseIcon />
-            </IconButton>
-            <Typography sx={{ ml: 2, fontSize: "1rem" }}>
-              Inventory Overview
-            </Typography>
-          </Toolbar>
-        </AppBar>
-        <Container
-          maxWidth={false}
-          sx={{ display: "flex", flexDirection: "column", height: "100%" }}
-        >
-          {tableContent}
-          <StockDialog
-            mode={dialogMode}
-            product={currentProduct}
-            open={!!dialogMode}
-            onClose={closeDialog}
-            onSuccess={(updated) => {
-              setTableData((old) =>
-                old.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
-              );
-            }}
-          />
-        </Container>
-      </Dialog>
-      </>
-)
-}
+    </>
+  );
+};
 
 export default InventoryOverviewPage;

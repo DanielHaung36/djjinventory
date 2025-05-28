@@ -13,7 +13,7 @@ export interface InventoryRow {
   actualQty: number;
   lockedQty: number;
   availableQty: number;
-  photoUrl: string; // 新增：示意图 URL
+  photoUrl?: string; // 新增：示意图 URL
 }
 
 // 预定义几个「地区–门店」组合
