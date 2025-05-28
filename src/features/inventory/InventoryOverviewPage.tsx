@@ -283,7 +283,7 @@ const InventoryOverviewPage: React.FC = () => {
   const table = useMaterialReactTable({
     columns,
     data: tableData,
-    enableColumnOrdering: true,
+    enableColumnOrdering: false,
     enableRowActions: true,
     enableColumnPinning: true,
     enableColumnActions: true,

@@ -106,7 +106,7 @@ const menuSections: Section[] = [
   {
     title: "Settings",
     items: [
-      { key: "personal", label: "Personal Settings", Icon: PeopleIcon,   path: "/settings/personal" },
+      { key: "personal", label: "Team Settings", Icon: PeopleIcon,   path: "/team" },
       { key: "global",   label: "Global Settings",   Icon: CategoryIcon, path: "/settings/global" },
     ],
   },

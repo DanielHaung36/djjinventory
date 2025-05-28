@@ -16,7 +16,8 @@ import ProductDictionaryPage from '../features/products/ProductDictionaryPage';
 import ProductEditPage from '../features/products/ProductEditPage';
 import InventoryInboundPage from '../features/inventory/components/InventoryInboundPage';
 import InventoryOutboundPage from '../features/inventory/components/InventoryoutboundPage';
-
+import Team from '../features/user';
+import Form from '../features/user/components/Form';
 export default function AppRoutes() {
   return (
     <BrowserRouter>
@@ -42,12 +43,15 @@ export default function AppRoutes() {
           <Route path="inventory">
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<InventoryOverviewPage />} />
-              <Route path="/inventory/:code" element={<InventoryDetailPage />} />
-              <Route path="/inventory/edit/:code" element={<ProductEditPage />} />
-              {/* <Route path="details" element={<ProductDictionaryPage  />} /> */}
+             {/* <Route path="details" element={<ProductDictionaryPage  />} /> */}
             <Route path="inbound" element={<InventoryInboundPage />} />
             <Route path="outbound" element={<InventoryOutboundPage />} />
           </Route>
+           <Route path="/inventory/:code" element={<InventoryDetailPage />} />
+           <Route path="/inventory/edit/:code" element={<ProductEditPage />} />
+           <Route path="/team" element={<Team />} />
+           <Route path="/team/create" element={<Form />} />
+           <Route path="/team/edit" element={<Form />} />
 
           {/* TODO: 更多二级路由组：orders/*、stores/* … */}
         </Route>

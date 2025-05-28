@@ -1,15 +1,19 @@
 // src/components/ProductDictionaryPage.tsx
 import React, { useMemo, useState,useEffect } from "react";
+import { Outlet } from "react-router-dom";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
+import type { InventoryRow } from "../inventory/data/InventoryData";
 import {
   MaterialReactTable,
   type MRT_ColumnDef,
+  type MRT_Row,
   useMaterialReactTable,
 } from "material-react-table";
 import {
   Box,
   Card,
   CardHeader,
+  Button,
   CardContent,
   IconButton,
   useTheme,
@@ -21,10 +25,21 @@ import {
   CircularProgress,
   Link as MuiLink,
 } from "@mui/material";
+
+import {
+  AddBox as AddBoxIcon,
+  RemoveCircle as RemoveCircleIcon,
+  Info as InfoIcon,
+  Storage
+  
+} from "@mui/icons-material";
+
 import CloseIcon from "@mui/icons-material/Close";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { productData, type Product } from "../inventory/data/productData";
 import Header from "../../components/Header";
-
+type DialogMode = "in" | "out" | null;
 // 假的异步获取函数
 async function fetchInventory(): Promise<Product[]> {
   return new Promise((resolve) =>
@@ -100,8 +115,15 @@ const ProductDictionaryPage: React.FC = () => {
     ],
     []
   );
-
+    const [currentProduct, setCurrentProduct] = useState<Product | null>(
+      null
+    );
+    const [validationErrors, setValidationErrors] = useState<
+      Record<string, string | undefined>
+    >({});
+ const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [data, setdata] = useState<Product[]>();
+  
   const [loading, setLoading] = useState(true);
    useEffect(() => {
     fetchInventory()
@@ -109,12 +131,26 @@ const ProductDictionaryPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const openDialog = (mode: DialogMode, product: Product) => {
+    setDialogMode(mode);
+    setCurrentProduct(product);
+  };
+
+    const openDeleteConfirmModal = (row: MRT_Row<Product>) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      //   deleteUser(row.original.id);
+      console.log(row);
+    }
+  };
+
 
   const table = useMaterialReactTable({
     columns,
     data: data ?? [],
     enableRowActions: true,
-     enableColumnOrdering: false, // 关闭列拖动
+    enableEditing: true,
+    enableColumnOrdering: false, // 关闭列拖动
+    editDisplayMode: "row", // 👈 只需加这句
     enableSorting: false, // 关闭全局排序
     enableColumnPinning: true,
     enableColumnActions: true,
@@ -141,7 +177,6 @@ const ProductDictionaryPage: React.FC = () => {
       }
     },
         muiExpandAllButtonProps:{
-
             sx:{
         CollapseProps: { timeout: 0 }
       }
@@ -220,36 +255,79 @@ const ProductDictionaryPage: React.FC = () => {
         flexGrow: 1,
       },
     },
-    renderRowActionMenuItems: ({ closeMenu, row }) => [
+    renderRowActionMenuItems: ({ row, closeMenu }) => [
+        // <MenuItem
+        //   key="edit"
+        //   onClick={() => {
+        //     closeMenu();
+        //     table.setEditingRow(row); // 这句是核心，开启当前行的编辑模式
+        //   }}
+        // >
+        //   <EditIcon color="primary" sx={{ mr: 1 }} />编辑
+        // </MenuItem>,
+
       <MenuItem
-        sx={{ pl: 5, pr: 5 }}
-        key="in"
-        onClick={() => {
-          closeMenu();
-        }}
-      >
-        入库
-      </MenuItem>,
-      <MenuItem
-        sx={{ pl: 5, pr: 5 }}
-        key="out"
-        onClick={() => {
-          closeMenu();
-        }}
-      >
-        出库
-      </MenuItem>,
-      <MenuItem
-        sx={{ pl: 5, pr: 5 }}
         key="info"
+        onClick={() => { closeMenu(); navigate(`/products/${row.original.djj_code}`); }}
+      ><InfoIcon color="primary" sx={{ mr: 1 }} />详情</MenuItem>,
+      <MenuItem
+        key="in"
+        onClick={() => { openDialog("in", row.original);  closeMenu();}}
+      ><Storage color="info" sx={{ mr: 1 }} />入库</MenuItem>,
+      <MenuItem
+        key="out"
+        onClick={() => { closeMenu(); openDialog("out", row.original); }}
+      ><Storage color="success" sx={{ transform: "scaleX(-1)", mr: 1 }} />出库</MenuItem>,
+      <MenuItem
+        key="delete"
+        onClick={() => { closeMenu(); openDeleteConfirmModal(row); }}
+        sx={{ }}
+      ><DeleteIcon color="error" sx={{ mr: 1 }} />删除</MenuItem>,
+    ],
+    renderTopToolbarCustomActions: ({ table }) => (
+      <Button
+        variant="outlined"
         onClick={() => {
-          /* 查看详情逻辑 */ closeMenu();
-          navigate(`/inventory/${row.original.djj_code}`);
+          table.setCreatingRow(true); //simplest way to open the create row modal with no default values
+          //or you can pass in a row object to set default values with the createRow helper function
+          // table.setCreatingRow(
+          //   createRow(table, {
+          //     //optionally pass in default values for the new row, useful for nested data or other complex scenarios
+          //   }),
+          // );
         }}
       >
-        查看详情
-      </MenuItem>,
-    ],
+        + Create New Product
+      </Button>
+    ),
+        onCreatingRowCancel: () => setValidationErrors({}),
+    onCreatingRowSave: ({ values, table }) => {
+      setdata((prev) => [
+        ...prev||[],
+        {
+          ...values,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+      table.setCreatingRow(null); // 新建后关闭编辑行
+    },
+    onEditingRowCancel: () => setValidationErrors({}),
+    onEditingRowSave: ({ row, table, values }) => {
+      console.log(values);
+      console.log(row);
+      // table.setEditingRow(row); //exit editing mode
+      setdata((prev) =>
+        prev?.map((row) => (row.djj_code === values.djj_code ? { ...row, ...values } : row))
+      );
+      table.setEditingRow(null); //exit editing mode
+    },
+    muiToolbarAlertBannerProps:{
+      sx:{
+        display:'none'
+      } 
+    },
+    
   });
 
   return (
