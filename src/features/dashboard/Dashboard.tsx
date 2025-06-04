@@ -1,28 +1,53 @@
 import { Box, Button, IconButton, Typography, useTheme } from "@mui/material";
 import { tokens } from "../../theme";
-import { mockTransactions } from "../../data/mockData";
+import {
+  totalInventoryValue,
+  inventoryUsageRate,
+  lastInventoryUsageRate,
+  monthlySalesOrders,
+  salesOrderCompletionRate,
+  lastSalesOrderRate,
+  lowStockSKUCount,
+  lastPeriodLowStockSKUCount,
+  weeklyProcurementCost,
+  lastWeekProcurementCost,
+  goalProcurement,
+  inventoryTrend,
+  salesByCategory,
+  recentOrders,
+  topSellingSKUs,
+  procurementVsSales,
+} from "../../data/mockData";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
-import EmailIcon from "@mui/icons-material/Email";
-import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import TrafficIcon from "@mui/icons-material/Traffic";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import WarningIcon from "@mui/icons-material/Warning";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import Header from "../../components/Header";
 import LineChart from "../../components/LineChart";
-import GeographyChart from "../../components/GeographyChart";
+import PieChart from "../../components/PieChart";
 import BarChart from "../../components/BarChart";
 import StatBox from "../../components/StatBox";
-import ProgressCircle from "../../components/ProgressCircle";
 
 const Dashboard = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
 
   return (
-    <Box m="1" sx={{display:'flex',flexDirection:'column',height:'100%',overflow:'auto',p:'2rem',bgcolor:theme.palette.secondary}}>
+    <Box
+      m="1"
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        overflow: "auto",
+        p: "2rem",
+        bgcolor: theme.palette.background.paper,
+      }}
+    >
       {/* HEADER */}
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Header title="DASHBOARD" subtitle="Welcome to your dashboard" />
-
+        <Header title="库存管理 Dashboard" subtitle="概览您的进销存数据" />
         <Box>
           <Button
             sx={{
@@ -34,7 +59,7 @@ const Dashboard = () => {
             }}
           >
             <DownloadOutlinedIcon sx={{ mr: "10px" }} />
-            Download Reports
+            导出报表
           </Button>
         </Box>
       </Box>
@@ -46,234 +71,188 @@ const Dashboard = () => {
         gridAutoRows="140px"
         gap="20px"
       >
-        {/* ROW 1 */}
+        {/* ROW 1: KPIs */}
         <Box
           gridColumn="span 3"
-          backgroundColor={colors.primary[400]}
+          bgcolor={colors.primary[400]}
           display="flex"
           alignItems="center"
           justifyContent="center"
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
           <StatBox
-            title="12,361"
-            subtitle="Emails Sent"
-            progress="0.75"
-            increase="+14%"
-            icon={
-              <EmailIcon
-                sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
-              />
-            }
+            title={`$${totalInventoryValue}`}
+            subtitle="总库存价值"
+            progress={inventoryUsageRate}
+            increase={`${((inventoryUsageRate - lastInventoryUsageRate) * 100).toFixed(1)}%`}
+            icon={<InventoryIcon sx={{ color: colors.greenAccent[600], fontSize: 26 }} />}
           />
         </Box>
         <Box
           gridColumn="span 3"
-          backgroundColor={colors.primary[400]}
+          bgcolor={colors.primary[400]}
           display="flex"
           alignItems="center"
           justifyContent="center"
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
           <StatBox
-            title="431,225"
-            subtitle="Sales Obtained"
-            progress="0.50"
-            increase="+21%"
-            icon={
-              <PointOfSaleIcon
-                sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
-              />
-            }
+            title={`${monthlySalesOrders}`}
+            subtitle="本月销售订单数"
+            progress={salesOrderCompletionRate}
+            increase={`${((salesOrderCompletionRate - lastSalesOrderRate) * 100).toFixed(1)}%`}
+            icon={<ShoppingCartIcon sx={{ color: colors.greenAccent[600], fontSize: 26 }} />}
           />
         </Box>
         <Box
           gridColumn="span 3"
-          backgroundColor={colors.primary[400]}
+          bgcolor={colors.primary[400]}
           display="flex"
           alignItems="center"
           justifyContent="center"
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
           <StatBox
-            title="32,441"
-            subtitle="New Clients"
-            progress="0.30"
-            increase="+5%"
-            icon={
-              <PersonAddIcon
-                sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
-              />
-            }
+            title={`${lowStockSKUCount}`}
+            subtitle="待补货 SKU"
+            progress={lowStockSKUCount / 100}
+            increase={`${(((lowStockSKUCount - lastPeriodLowStockSKUCount) / lastPeriodLowStockSKUCount) * 100).toFixed(1)}%`}
+            icon={<WarningIcon sx={{ color: colors.greenAccent[600], fontSize: 26 }} />}
           />
         </Box>
         <Box
           gridColumn="span 3"
-          backgroundColor={colors.primary[400]}
+          bgcolor={colors.primary[400]}
           display="flex"
           alignItems="center"
           justifyContent="center"
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
           <StatBox
-            title="1,325,134"
-            subtitle="Traffic Received"
-            progress="0.80"
-            increase="+43%"
-            icon={
-              <TrafficIcon
-                sx={{ color: colors.greenAccent[600], fontSize: "26px" }}
-              />
-            }
+            title={`$${weeklyProcurementCost}`}
+            subtitle="本周采购支出"
+            progress={weeklyProcurementCost / goalProcurement}
+            increase={`${(((weeklyProcurementCost - lastWeekProcurementCost) / lastWeekProcurementCost) * 100).toFixed(1)}%`}
+            icon={<LocalShippingIcon sx={{ color: colors.greenAccent[600], fontSize: 26 }} />}
           />
         </Box>
 
-        {/* ROW 2 */}
+        {/* ROW 2: Inventory Trend + Sales Category */}
         <Box
           gridColumn="span 8"
           gridRow="span 2"
-          backgroundColor={colors.primary[400]}
+          bgcolor={colors.primary[400]}
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
-          <Box
-            mt="25px"
-            p="0 30px"
-            display="flex "
-            justifyContent="space-between"
-            alignItems="center"
+          <Typography
+            variant="h5"
+            fontWeight="600"
+            color={colors.grey[100]}
+            p="20px"
           >
-            <Box>
-              <Typography
-                variant="h5"
-                fontWeight="600"
-                color={colors.grey[100]}
-              >
-                Revenue Generated
-              </Typography>
-              <Typography
-                variant="h3"
-                fontWeight="bold"
-                color={colors.greenAccent[500]}
-              >
-                $59,342.32
-              </Typography>
-            </Box>
-            <Box>
-              <IconButton>
-                <DownloadOutlinedIcon
-                  sx={{ fontSize: "26px", color: colors.greenAccent[500] }}
-                />
-              </IconButton>
-            </Box>
-          </Box>
-          <Box height="250px" m="-20px 0 0 0">
-            <LineChart isDashboard={true} />
+            库存周走势
+          </Typography>
+          <Box height="250px" m="0 20px 0 20px">
+            <LineChart data={inventoryTrend} isDashboard />
           </Box>
         </Box>
         <Box
           gridColumn="span 4"
           gridRow="span 2"
-          backgroundColor={colors.primary[400]}
-          overflow="auto"
+          bgcolor={colors.primary[400]}
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            borderBottom={`4px solid ${colors.primary[500]}`}
-            colors={colors.grey[100]}
-            p="15px"
+          <Typography
+            variant="h5"
+            fontWeight="600"
+            color={colors.grey[100]}
+            p="20px"
           >
-            <Typography color={colors.grey[100]} variant="h5" fontWeight="600">
-              Recent Transactions
-            </Typography>
+            销售类别分布
+          </Typography>
+          <Box height="250px" m="0 20px 0 20px">
+            <PieChart data={salesByCategory} isDashboard />
           </Box>
-          {mockTransactions.map((transaction, i) => (
+        </Box>
+
+        {/* ROW 3: Recent Orders + Top/Low Sellers + Procurement vs Sales */}
+        <Box
+          gridColumn="span 4"
+          gridRow="span 2"
+          bgcolor={colors.primary[400]}
+          overflow="auto"
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
+        >
+          <Typography color={colors.grey[100]} variant="h5" p="15px">
+            最新订单
+          </Typography>
+          {recentOrders.map((order, idx) => (
             <Box
-              key={`${transaction.txId}-${i}`}
+              key={order.id}
               display="flex"
               justifyContent="space-between"
               alignItems="center"
-              borderBottom={`4px solid ${colors.primary[500]}`}
+              borderBottom={`1px solid ${colors.primary[500]}`}
               p="15px"
             >
               <Box>
-                <Typography
-                  color={colors.greenAccent[500]}
-                  variant="h5"
-                  fontWeight="600"
-                >
-                  {transaction.txId}
+                <Typography variant="h6" color={colors.greenAccent[500]}>
+                  {order.id}
                 </Typography>
                 <Typography color={colors.grey[100]}>
-                  {transaction.user}
+                  {order.partner}
                 </Typography>
               </Box>
-              <Box color={colors.grey[100]}>{transaction.date}</Box>
+              <Typography color={colors.grey[100]}>{order.date}</Typography>
               <Box
-                backgroundColor={colors.greenAccent[500]}
+                bgcolor={
+                  order.type === "sale"
+                    ? colors.greenAccent[600]
+                    : colors.blueAccent[600]
+                }
                 p="5px 10px"
                 borderRadius="4px"
               >
-                ${transaction.cost}
+                {order.type === "sale" ? "销售" : "采购"}
               </Box>
+              <Typography color={colors.grey[100]}>${order.amount}</Typography>
             </Box>
           ))}
         </Box>
-
-        {/* ROW 3 */}
         <Box
           gridColumn="span 4"
           gridRow="span 2"
-          backgroundColor={colors.primary[400]}
-          p="30px"
+          bgcolor={colors.primary[400]}
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
-          <Typography variant="h5" fontWeight="600">
-            Campaign
-          </Typography>
-          <Box
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            mt="25px"
+          <Typography
+            variant="h5"
+            fontWeight="600"
+            color={colors.grey[100]}
+            p="20px"
           >
-            <ProgressCircle size="125" />
-            <Typography
-              variant="h5"
-              color={colors.greenAccent[500]}
-              sx={{ mt: "15px" }}
-            >
-              $48,352 revenue generated
-            </Typography>
-            <Typography>Includes extra misc expenditures and costs</Typography>
+            热销 / 滞销 SKU
+          </Typography>
+          <Box height="250px" m="0 20px 0 20px">
+            <BarChart data={topSellingSKUs} isDashboard />
           </Box>
         </Box>
         <Box
           gridColumn="span 4"
           gridRow="span 2"
-          backgroundColor={colors.primary[400]}
+          bgcolor={colors.primary[400]}
+          sx={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)", borderRadius: "8px" }}
         >
           <Typography
             variant="h5"
             fontWeight="600"
-            sx={{ padding: "30px 30px 0 30px" }}
+            color={colors.grey[100]}
+            p="20px"
           >
-            Sales Quantity
+            采购 vs 销售
           </Typography>
-          <Box height="250px" mt="-20px">
-            <BarChart isDashboard={true} />
-          </Box>
-        </Box>
-        <Box
-          gridColumn="span 4"
-          gridRow="span 2"
-          backgroundColor={colors.primary[400]}
-          padding="30px"
-        >
-          <Typography
-            variant="h5"
-            fontWeight="600"
-            sx={{ marginBottom: "15px" }}
-          >
-            Geography Based Traffic
-          </Typography>
-          <Box height="200px">
-            <GeographyChart isDashboard={true} />
+          <Box height="250px" m="0 20px 0 20px">
+            <LineChart data={procurementVsSales} isDashboard />
           </Box>
         </Box>
       </Box>

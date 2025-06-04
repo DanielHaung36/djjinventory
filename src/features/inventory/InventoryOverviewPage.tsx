@@ -371,7 +371,6 @@ const InventoryOverviewPage: React.FC = () => {
           // navigate(`/products/${row.original.djj_code}`); 
             setSelectedRow(row.original);
             setDrawerOpen(true);
-        
         }}
       ><InfoIcon color="primary" sx={{ mr: 1 }} />详情</MenuItem>,
       <MenuItem

@@ -227,7 +227,7 @@ export default function ProductDetailPage() {
           </Link>
           <Typography color="text.primary">Product Detail</Typography>
         </Breadcrumbs>
-        <Button startIcon={<ArrowBackIcon />} variant="outlined">
+        <Button startIcon={<ArrowBackIcon /> } variant="outlined" onclick={()=>{ navigate(-1)}}>
           Back
         </Button>
       </Box>

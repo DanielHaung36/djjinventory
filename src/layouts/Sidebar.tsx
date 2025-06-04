@@ -4,7 +4,6 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   Drawer,
   Toolbar,
-  IconButton,
   List,
   ListItemButton,
   ListItemIcon,
@@ -15,6 +14,7 @@ import {
   alpha,
   ListSubheader,
   Box,
+  IconButton,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -26,12 +26,10 @@ import CategoryIcon from "@mui/icons-material/Category";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PeopleIcon from "@mui/icons-material/People";
 import InboxIcon from "@mui/icons-material/Inbox";
-import { Avatar } from '@mui/material';
-import UserAvatar from '../components/UserAvatar';
+import UserAvatar from "../components/UserAvatar";
+
 const drawerWidth = 240;
 const collapsedWidth = 64;
-
-
 
 interface MenuItem {
   key: string;
@@ -49,7 +47,6 @@ interface Section {
 const EXPANDED_DRAWER_UNITS = 30;  // 30 * 8px = 240px
 const COLLAPSED_DRAWER_UNITS = 8;  //  8 * 8px =  64px
 
-
 // 使用主题的 primary.light/primary.main 代替硬编码灰色
 const StyledNavLink = styled(NavLink)(({ theme }) => ({
   textDecoration: "none",
@@ -64,10 +61,9 @@ const StyledNavLink = styled(NavLink)(({ theme }) => ({
   "&.active > .MuiListItemButton-root:hover": {
     backgroundColor: theme.palette.primary.main,         // 悬停时主色
   },
-
 }));
 
-
+// 侧边栏菜单配置
 const menuSections: Section[] = [
   {
     items: [
@@ -78,7 +74,7 @@ const menuSections: Section[] = [
         Icon: StarBorder,
         children: [
           { key: "sales-overview", label: "Overview", Icon: StarBorder, path: "/sales/overview" },
-          { key: "sales-details", label: "Details",  Icon: StarBorder, path: "/sales/details" },
+          { key: "sales-details", label: "Details", Icon: StarBorder, path: "/sales/details" },
         ],
       },
       {
@@ -86,28 +82,35 @@ const menuSections: Section[] = [
         label: "Inventory",
         Icon: Inventory2Icon,
         children: [
-          { key: "inv-overview",  label: "Overview", path: "/inventory/overview" },
-          // { key: "inv-details",   label: "Details", path: "/inventory/details" },
-          { key: "inv-inbound",  label: "InBound",  path: "/inventory/inbound" },
-          { key: "inv-outbound",  label: "OutBound",  path: "/inventory/outbound" },
+          { key: "inv-overview", label: "Overview", path: "/inventory/overview" },
+          { key: "inv-inbound", label: "InBound", path: "/inventory/inbound" },
+          { key: "inv-outbound", label: "OutBound", path: "/inventory/outbound" },
         ],
       },
-      { key: "products",  label: "Products",  Icon: CategoryIcon,     path: "/products" },
-      { key: "purchases", label: "Purchases", Icon: ShoppingCartIcon, path: "/purchases" },
+      { key: "products", label: "Products", Icon: CategoryIcon, path: "/products" },
+      {
+        key: "purchases",
+        label: "Purchases",
+        Icon: ShoppingCartIcon,
+        children: [
+          { key: "purchase", label: "Purchase", path: "/purchases" },
+          { key: "newproduct", label: "NewProduct", path: "/purchases/newpurchase" },
+        ],
+      },
     ],
   },
   {
     title: "Other Information",
     items: [
-      { key: "knowledge", label: "Knowledge Base",  Icon: InboxIcon,     path: "/knowledge" },
-      { key: "updates",   label: "Product Updates", Icon: StarBorder,    path: "/updates" },
+      { key: "knowledge", label: "Knowledge Base", Icon: InboxIcon, path: "/knowledge" },
+      { key: "faq", label: "FAQ", Icon: StarBorder, path: "/faq" },
     ],
   },
   {
     title: "Settings",
     items: [
-      { key: "personal", label: "Team Settings", Icon: PeopleIcon,   path: "/team" },
-      { key: "global",   label: "Global Settings",   Icon: CategoryIcon, path: "/settings/global" },
+      { key: "personal", label: "Team Settings", Icon: PeopleIcon, path: "/team" },
+      { key: "global", label: "Global Settings", Icon: CategoryIcon, path: "/settings/global" },
     ],
   },
 ];
@@ -119,75 +122,102 @@ export default memo(function SideBar({
   open: boolean;
   onToggle: () => void;
 }) {
-
-  const userName = "Daniel Huang"; // 从上下文或者 Redux/Context 拿到  
+  const userName = "Daniel Huang"; // 示例用户名
   const theme = useTheme();
   const { pathname } = useLocation();
   const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
 
-  
+  // Drawer 宽度
   const expandedW = theme.spacing(EXPANDED_DRAWER_UNITS);
   const collapsedW = theme.spacing(COLLAPSED_DRAWER_UNITS);
+
   const toggleExpand = (key: string) =>
     setExpandedKeys((prev) => ({ ...prev, [key]: !prev[key] }));
 
+  // 递归渲染菜单项
   const renderMenuItems = (items: MenuItem[], level = 0) =>
     items.map((item) => {
-      const hasChildren = Boolean(item.children);
+      const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+      // 判断子路径中是否有当前 pathname
       const parentActive =
         item.path === pathname ||
         (hasChildren && item.children!.some((c) => c.path === pathname));
 
       if (hasChildren) {
+        // 先拿父节点第一个子节点的 path 作为“默认跳转路径”
+        const defaultChildPath = item.children![0].path || "#";
+
         return (
           <React.Fragment key={item.key}>
-            <ListItemButton
-              onClick={() => toggleExpand(item.key)}
-            //   selected={parentActive}
-              sx={{
-                minWidth: open ? undefined : 0,
-                justifyContent: open ? undefined : "center",
-                "&:hover": {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                },
-                 // ✅ 手动给父级“激活”状态加背景色 和 白字
-                backgroundColor: parentActive
-                  ?  "inherit"
-                  : 'transparent',
-                '& .MuiListItemIcon-root, & .MuiListItemText-root': {
-                  color: parentActive
-                    ? "#333333"
-                    : undefined,
-                },
-                fontWeight:400,
-                borderRadius: 1,
-              }}
-            >
-              <ListItemIcon
+            {/*
+              1. 外层用 StyledNavLink 包裹，使点击整个按钮时跳转到 defaultChildPath
+              2. 但是 Expand 图标单独用 IconButton，使得点击图标只触发展开/收缩，不触发导航
+            */}
+            <StyledNavLink to={defaultChildPath} end>
+              <ListItemButton
+                selected={parentActive}
                 sx={{
-                  minWidth: open ? undefined : 0,
+                  pl: open ? level * 2 + 1 : 0,
                   justifyContent: open ? undefined : "center",
-                  color: parentActive
-                    ? theme.palette.primary.contrastText
-                    : undefined,
+                  borderRadius: 1,
+                  mt: 0.5,
+                  mb: 0.5,
+                  "&:hover": {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  },
+                  backgroundColor: parentActive
+                    ? theme.palette.primary.light
+                    : "transparent",
+                  "& .MuiListItemIcon-root, & .MuiListItemText-root": {
+                    color: parentActive
+                      ? theme.palette.primary.contrastText
+                      : undefined,
+                  },
                 }}
               >
-                 {item?.Icon && <item.Icon />}
-              </ListItemIcon>
-              {open && (
-                <>
-                  <ListItemText
-                    primary={item.label}
-                    sx={{
-                      color: parentActive
-                        ? theme.palette.primary.contrastText
-                        : undefined,
-                    }}
-                  />
-                  {expandedKeys[item.key] ? <ExpandLess /> : <ExpandMore />}
-                </>
-              )}
-            </ListItemButton>
+                <ListItemIcon
+                  sx={{
+                    minWidth: open ? undefined : 0,
+                    justifyContent: open ? undefined : "center",
+                    color: parentActive
+                      ? theme.palette.primary.contrastText
+                      : undefined,
+                  }}
+                >
+                  {item.Icon && <item.Icon />}
+                </ListItemIcon>
+
+                {open && (
+                  <>
+                    <ListItemText
+                      primary={item.label}
+                      sx={{
+                        color: parentActive
+                          ? theme.palette.primary.contrastText
+                          : undefined,
+                      }}
+                    />
+                    {/* ① 将 Expand 图标单独放在 IconButton 中 */}
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleExpand(item.key);
+                      }}
+                      sx={{
+                        color: parentActive
+                          ? theme.palette.primary.contrastText
+                          : undefined,
+                      }}
+                    >
+                      {expandedKeys[item.key] ? <ExpandLess /> : <ExpandMore />}
+                    </IconButton>
+                  </>
+                )}
+              </ListItemButton>
+            </StyledNavLink>
+
             <Collapse in={expandedKeys[item.key]} timeout="auto" unmountOnExit>
               <List disablePadding>
                 {renderMenuItems(item.children!, level + 1)}
@@ -197,19 +227,20 @@ export default memo(function SideBar({
         );
       }
 
+      // 普通子节点：直接导航到 item.path
       return (
         <StyledNavLink key={item.key} to={item.path!} end>
           <ListItemButton
             selected={item.path === pathname}
             sx={{
-              pl: level * 2 + 1,
-              minWidth: open ? undefined : 0,
+              pl: open ? level * 2 + 1 : 0,
               justifyContent: open ? undefined : "center",
               borderRadius: 1,
+              mt: 0.5,
+              mb: 0.5,
               "&:hover": {
-                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
               },
-            
             }}
           >
             <ListItemIcon
@@ -218,7 +249,7 @@ export default memo(function SideBar({
                 justifyContent: open ? undefined : "center",
               }}
             >
-             {item?.Icon && <item.Icon />}
+              {item.Icon && <item.Icon />}
             </ListItemIcon>
             {open && <ListItemText primary={item.label} />}
           </ListItemButton>
@@ -248,12 +279,18 @@ export default memo(function SideBar({
         sx={{
           display: "flex",
           alignItems: "center",
-          justifyContent: open ? "center" : "center",
+          justifyContent: "center",
         }}
       >
-        {open ? <Box sx={{justifyContent:'center'}}><UserAvatar  name={userName} size={48} /></Box>: <Box sx={{justifyContent:'center'}}><UserAvatar  name={userName} size={32} /></Box>}
-        {/* 如果需要折叠按钮可解开下面这一行 */}
-        {/* <IconButton onClick={onToggle}><MenuIcon /></IconButton> */}
+        {open ? (
+          <Box>
+            <UserAvatar name={userName} size={48} />
+          </Box>
+        ) : (
+          <Box>
+            <UserAvatar name={userName} size={32} />
+          </Box>
+        )}
       </Toolbar>
 
       <List disablePadding>
