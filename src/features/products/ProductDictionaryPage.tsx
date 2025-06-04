@@ -14,6 +14,7 @@ import {
   Card,
   CardHeader,
   Button,
+  Chip,
   CardContent,
   IconButton,
   useTheme,
@@ -58,7 +59,32 @@ const ProductDictionaryPage: React.FC = () => {
       { accessorKey: "status", header: "状态", size: 80 },
       { accessorKey: "supplier", header: "供货商", size: 120 },
       { accessorKey: "manufacturer_code", header: "厂家代码", size: 130 },
-      { accessorKey: "category", header: "类别", size: 100 },
+         {
+        accessorKey: "category",
+        header: "Category",
+        enableColumnFilter: true,
+        size: 120,
+        Cell: ({ cell }) => {
+          const val = cell.getValue<InventoryRow["category"]>();
+          const colorMap: Record<
+            typeof val,
+            "warning" | "primary" | "success" | "info"
+          > = {
+            Machine: "warning",
+            Parts: "primary",
+            Tools: "success",
+            Accessories: "info",
+          };
+          return (
+            <Chip
+              label={val}
+              size="small"
+              variant="filled"
+              color={colorMap[val]}
+            />
+          );
+        },
+      },
       { accessorKey: "subcategory", header: "子类", size: 120 },
       { accessorKey: "tertiary_category", header: "三级类", size: 120 },
       { accessorKey: "name_cn", header: "品名(中文)", size: 150 },

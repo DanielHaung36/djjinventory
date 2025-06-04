@@ -24,9 +24,9 @@ import AddIcon from "@mui/icons-material/Add";
 import TableViewIcon from "@mui/icons-material/TableView";
 import AppsIcon from "@mui/icons-material/Apps";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { ResponsivePie, type ComputedDatum } from "@nivo/pie";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
-import { ResponsivePie, type ComputedDatum } from "@nivo/pie";
 
 interface NewProduct {
   id: string;
@@ -58,7 +58,7 @@ const NewProductPage: React.FC = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
 
-  // ----- 全量产品列表（mock 数据） -----
+  // —— 假数据与状态定义（可替换成真实业务） —— 
   const [products, setProducts] = useState<NewProduct[]>([
     {
       id: "1",
@@ -157,18 +157,15 @@ const NewProductPage: React.FC = () => {
     },
   ]);
 
-  // 当前选中的“状态筛选”：null 表示不按状态过滤，显示所有
+  // 当前状态筛选 & 搜索文本 & 视图切换
   const [filterStatus, setFilterStatus] = useState<NewProduct["techStatus"] | null>(null);
-  // 搜索关键字（用于卡片和表格的“搜索”功能）
   const [searchText, setSearchText] = useState("");
-  // 卡片 / 表格 视图切换
   const [isCardView, setIsCardView] = useState(true);
-  // “审核”对话框
+
+  // 对话框 & 表单状态
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selected, setSelected] = useState<NewProduct | null>(null);
-  // “新增申请”对话框
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  // 新增表单字段
   const [formProductName, setFormProductName] = useState("");
   const [formDemandDate, setFormDemandDate] = useState("");
   const [formExpectedPrice, setFormExpectedPrice] = useState(0);
@@ -177,7 +174,7 @@ const NewProductPage: React.FC = () => {
   const [formSupplierCode, setFormSupplierCode] = useState("");
   const [formProductDesc, setFormProductDesc] = useState("");
 
-  // —— 1. 先根据 searchText 过滤出所有匹配的产品（仅供“表格视图”使用） ——
+  // —— 1. 根据 searchText 过滤（表格视图用） —— 
   const filteredBySearch = useMemo(() => {
     if (!searchText.trim()) return products;
     const lower = searchText.trim().toLowerCase();
@@ -188,7 +185,7 @@ const NewProductPage: React.FC = () => {
     );
   }, [products, searchText]);
 
-  // —— 2. “卡片视图”使用的双重过滤：先按状态，再按搜索 —— 
+  // —— 2. 卡片视图双重过滤：先按状态，再按搜索 —— 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchStatus = !filterStatus || p.techStatus === filterStatus;
@@ -200,7 +197,7 @@ const NewProductPage: React.FC = () => {
     });
   }, [products, filterStatus, searchText]);
 
-  // —— 饼图数据：仅根据“搜索后的结果” filteredBySearch 计算，不再包含状态筛选 —— 
+  // —— 3. 饼图数据（只用“搜索后”结果） —— 
   const pieData = useMemo(() => {
     const countMap: Record<NewProduct["techStatus"], number> = {
       待审核: 0,
@@ -218,26 +215,22 @@ const NewProductPage: React.FC = () => {
     }));
   }, [filteredBySearch]);
 
-  // 点击饼图 → 切换状态筛选 filterStatus；若重复点击则取消
+  // 点击饼图切换状态
   const handleStatusClick = (datum: ComputedDatum<any>) => {
     const clicked = datum.id as NewProduct["techStatus"];
     setFilterStatus((prev) => (prev === clicked ? null : clicked));
   };
 
-  // 审核“通过”/“驳回”
+  // 技术审核“通过/驳回”
   const handleStatusChange = (status: "已通过" | "已驳回") => {
     if (!selected) return;
     setProducts((prev) =>
-      prev.map((p) =>
-        p.id === selected.id
-          ? { ...p, techStatus: status, techComment: selected.techComment }
-          : p
-      )
+      prev.map((p) => (p.id === selected.id ? { ...p, techStatus: status, techComment: selected.techComment } : p))
     );
     setDialogOpen(false);
   };
 
-  // 提交“新增申请”
+  // “新增申请”提交
   const handleAddProduct = () => {
     if (!formProductName.trim()) return;
     const newItem: NewProduct = {
@@ -260,7 +253,6 @@ const NewProductPage: React.FC = () => {
       finalStatus: "待上线",
     };
     setProducts((prev) => [newItem, ...prev]);
-
     // 清空表单
     setFormProductName("");
     setFormDemandDate("");
@@ -272,8 +264,8 @@ const NewProductPage: React.FC = () => {
     setAddDialogOpen(false);
   };
 
-  // DataGrid 列配置（表格模式用）
-  const columns: GridColDef[] = [
+  // DataGrid 列配置 (表格视图用)
+  const tableColumns: GridColDef[] = [
     { field: "productName", headerName: "产品名称", flex: 1 },
     { field: "customerInfo", headerName: "客户信息", flex: 1.5 },
     { field: "expectedPrice", headerName: "预期售价", flex: 1 },
@@ -300,189 +292,254 @@ const NewProductPage: React.FC = () => {
   ];
 
   return (
-    <Box m={3} px={3} overflow={"auto"}>
-      {/* —— 顶部：Title + 搜索 + 卡片/表格切换 + 新增 + 导出 —— */}
-      <Box display="flex" justifyContent="space-between" alignItems="center">
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        display: "grid",
+        gridTemplateRows: "auto auto 1fr", // ① 三行布局：Header / Toolbar / 主内容
+      }}
+    >
+      {/* ──── 第 1 行：Header 区 ──── */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          // borderBottom: `1px solid ${colors.grey[200]}`,
+        }}
+      >
         <Header title="新品上线" subtitle="新品审核与流程管理" />
+      </Box>
+
+      {/* ──── 第 2 行：搜索 + 切换 + 新增 + 导出 区 ──── */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          // borderBottom: `1px solid ${colors.grey[100]}`,
+        }}
+      >
+        <TextField
+          size="small"
+          placeholder="搜索产品 / 客户"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          sx={{ width: 300 }}
+        />
         <Box display="flex" alignItems="center" gap={2}>
-          <TextField
-            size="small"
-            placeholder="搜索产品 / 客户"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            sx={{ width: 240 }}
-          />
-          <IconButton onClick={() => setIsCardView((prev) => !prev)}>
+          <IconButton size="small" onClick={() => setIsCardView((prev) => !prev)}>
             {isCardView ? <TableViewIcon /> : <AppsIcon />}
           </IconButton>
           <Button
-            sx={{
-              backgroundColor: colors.greenAccent[600],
-              color: colors.grey[100],
-            }}
+            variant="contained"
+            startIcon={<AddIcon />}
             onClick={() => setAddDialogOpen(true)}
+            sx={{ backgroundColor: colors.greenAccent[600], color: colors.grey[100] }}
           >
-            <AddIcon sx={{ mr: 1 }} /> 新增申请
+            新增申请
           </Button>
           <Button
-            sx={{
-              backgroundColor: colors.blueAccent[700],
-              color: colors.grey[100],
-            }}
+            variant="contained"
+            startIcon={<DownloadOutlinedIcon />}
+            sx={{ backgroundColor: colors.blueAccent[700], color: colors.grey[100] }}
           >
-            <DownloadOutlinedIcon sx={{ mr: 1 }} /> 导出报表
+            导出报表
           </Button>
         </Box>
       </Box>
 
-      {/* —— 卡片视图：Responsive Grid + 饼图 + 卡片列表 —— */}
-      <Fade in={isCardView} unmountOnExit>
-        <Box>
-          {/* —— 饼图：先按“搜索结果” filteredBySearch 过滤，再统计三种状态数量 —— */}
-          <Box mt={2} height={220} width="100%">
-            <ResponsivePie
-              data={pieData}
-              innerRadius={0.5}
-              padAngle={1}
-              cornerRadius={3}
-              /** 颜色回调：从 datum.data.color 中读取 */
-              colors={(datum) => datum.data.color as string}
-              margin={{ top: 40, right: 60, bottom: 40, left: 60 }}
-              arcLinkLabelsSkipAngle={10}
-              arcLinkLabelsTextColor="#444"
-              arcLabelsSkipAngle={10}
-              arcLabelsTextColor={{ from: "color", modifiers: [["darker", 2]] }}
-              onClick={(datum) => handleStatusClick(datum as ComputedDatum<any>)}
-              // ❶ activeId / activeOuterRadiusOffset：高亮（拉出）被选中扇区
-              activeId={filterStatus ?? undefined}
-              activeOuterRadiusOffset={8}
-            />
-          </Box>
-
-          {/* —— 卡片列表：三个状态列，响应式地分 1~3 列 —— */}
+      {/* ──── 第 3 行：主内容区 (卡片/表格) ──── */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "1fr", // 这里先是单列，内部再用条件渲染
+          minHeight: 0,               // 必须加，否则内部子项无法正确 scroll
+        }}
+      >
+        {/* —— 卡片视图 —— */}
+        <Fade in={isCardView} unmountOnExit>
           <Box
-            mt={2}
             sx={{
               display: "grid",
-              gap: 3, // theme.spacing(2) = 16px
-              gridTemplateColumns: {
-                xs: "repeat(1, 1fr)", // <600px：一列
-                sm: "repeat(2, 1fr)", // ≥600px：两列
-                md: "repeat(3, 1fr)", // ≥900px：三列
-              },
+              gridTemplateColumns: "1fr 3fr", // 左 1 份 → 饼图；右 3 份 → 卡片列表
+              gap: 2,
+              height: "100%",    // 填满父容器剩余高度
+              minHeight: 0,
+              p: 1,
             }}
           >
-            {(!filterStatus ? ["待审核", "已通过", "已驳回"] : [filterStatus]).map(
-              (stat) => {
-                // 只取当前状态的那部分
-                const itemsThisStatus = filteredProducts.filter(
-                  (p) => p.techStatus === stat
-                );
-                const count = itemsThisStatus.length;
-                // 如果当前状态下没有任何记录，就直接不渲染这一列
-                if (count === 0) return null;
+            {/* —— 左侧：ResponsivePie 饼图区 —— */}
+            <Box
+              sx={{
+                height: "100%",
+                minHeight: 0,
+                overflow: "hidden",
+              }}
+            >
+              <ResponsivePie
+                data={pieData}
+                innerRadius={0.5}
+                padAngle={1}
+                cornerRadius={3}
+                colors={(datum) => datum.data.color as string}
+                margin={{ top: 40, right: 20, bottom: 40, left: 20 }}
+                arcLinkLabelsSkipAngle={10}
+                arcLinkLabelsTextColor="#444"
+                arcLabelsSkipAngle={10}
+                arcLabelsTextColor={{ from: "color", modifiers: [["darker", 2]] }}
+                onClick={(datum) => handleStatusClick(datum as ComputedDatum<any>)}
+                activeId={filterStatus ?? undefined}
+                activeOuterRadiusOffset={8}
+                style={{ height: "100%", width: "100%" }}
+              />
+            </Box>
 
-                return (
-                  <Box key={stat} sx={{ display: "flex", flexDirection: "column" }}>
-                    {/* 标题：状态 + 数量（数字加粗） */}
-                    <Typography
-                      variant="h6"
-                      mb={1}
-                      sx={{
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: 1,
-                      }}
-                    >
-                      <span>{stat}</span>
-                      <span style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-                        {count}
-                      </span>
-                    </Typography>
-
-                    {/* 列内滚动区域：卡片较多时可以有限高度内滚动 */}
-                    <Box sx={{ overflowY: "auto", maxHeight: 400 }}>
-                      {itemsThisStatus.map((item) => (
-                        <Card
-                          key={item.id}
-                          sx={{
-                            mb: 2,
-                            borderLeft: `6px solid ${statusColors[item.techStatus]}`,
-                          }}
-                        >
-                          <CardContent>
-                            <Typography variant="h6">
-                              {item.productName}
-                            </Typography>
-                            <Typography>客户：{item.customerInfo}</Typography>
-                            <Typography>预期售价：¥{item.expectedPrice}</Typography>
-                            <Typography>
-                              供应商：{item.supplierName} ({item.supplierCode})
-                            </Typography>
-                            <Typography>需求日期：{item.demandDate}</Typography>
-                            <Box mt={1}>
-                              <Stepper
-                                activeStep={
-                                  item.techStatus === "待审核"
-                                    ? 0
-                                    : item.techStatus === "已通过"
-                                    ? 1
-                                    : 2
-                                }
-                                alternativeLabel
+            {/* —— 右侧：卡片列表区 —— */}
+            <Box
+              sx={{
+                height: "100%",
+                minHeight: 0,
+                overflowY: "auto", // 如果卡片很多，就滚动这部分
+                pr: 1,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 2,
+                  // 响应式列数：xs=1 列，sm=2 列，md=3 列
+                  gridTemplateColumns: {
+                    xs: "repeat(1, 1fr)",
+                    sm: "repeat(2, 1fr)",
+                    md: "repeat(3, 1fr)",
+                  },
+                }}
+              >
+                {(!filterStatus ? ["待审核", "已通过", "已驳回"] : [filterStatus]).map((stat) => {
+                  const itemsThisStatus = filteredProducts.filter((p) => p.techStatus === stat);
+                  if (itemsThisStatus.length === 0) return null;
+                  return (
+                    <Box key={stat} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          gap: 1,
+                        }}
+                      >
+                        <span>{stat}</span>
+                        <span style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
+                          {itemsThisStatus.length}
+                        </span>
+                      </Typography>
+                      <Box
+                        sx={{
+                          overflowY: "auto",
+                          // 计算出“标题 + Stepper”占据了大约 64px 左右，把剩余区域让卡片滚动
+                          maxHeight: "calc(100% - 64px)",
+                        }}
+                      >
+                        {itemsThisStatus.map((item) => (
+                          <Card
+                            key={item.id}
+                            sx={{
+                              mb: 2,
+                              borderLeft: `6px solid ${statusColors[item.techStatus]}`,
+                            }}
+                          >
+                            <CardContent>
+                              <Typography variant="h6">{item.productName}</Typography>
+                              <Typography>客户：{item.customerInfo}</Typography>
+                              <Typography>预期售价：¥{item.expectedPrice}</Typography>
+                              <Typography>
+                                供应商：{item.supplierName} ({item.supplierCode})
+                              </Typography>
+                              <Typography>需求日期：{item.demandDate}</Typography>
+                              <Box mt={1}>
+                                <Stepper
+                                  activeStep={
+                                    item.techStatus === "待审核"
+                                      ? 0
+                                      : item.techStatus === "已通过"
+                                      ? 1
+                                      : 2
+                                  }
+                                  alternativeLabel
+                                >
+                                  <Step>
+                                    <StepLabel>技术审核</StepLabel>
+                                  </Step>
+                                  <Step>
+                                    <StepLabel>采购确认</StepLabel>
+                                  </Step>
+                                  <Step>
+                                    <StepLabel>财务定价</StepLabel>
+                                  </Step>
+                                  <Step>
+                                    <StepLabel>完成上线</StepLabel>
+                                  </Step>
+                                </Stepper>
+                              </Box>
+                            </CardContent>
+                            <CardActions>
+                              <Button
+                                size="small"
+                                onClick={() => {
+                                  setSelected(item);
+                                  setDialogOpen(true);
+                                }}
                               >
-                                <Step>
-                                  <StepLabel>技术审核</StepLabel>
-                                </Step>
-                                <Step>
-                                  <StepLabel>采购确认</StepLabel>
-                                </Step>
-                                <Step>
-                                  <StepLabel>财务定价</StepLabel>
-                                </Step>
-                                <Step>
-                                  <StepLabel>完成上线</StepLabel>
-                                </Step>
-                              </Stepper>
-                            </Box>
-                          </CardContent>
-                          <CardActions>
-                            <Button
-                              size="small"
-                              onClick={() => {
-                                setSelected(item);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              审核
-                            </Button>
-                          </CardActions>
-                        </Card>
-                      ))}
+                                审核
+                              </Button>
+                            </CardActions>
+                          </Card>
+                        ))}
+                      </Box>
                     </Box>
-                  </Box>
-                );
-              }
-            )}
+                  );
+                })}
+              </Box>
+            </Box>
           </Box>
-        </Box>
-      </Fade>
+        </Fade>
 
-      {/* —— 表格视图 —— */}
-      <Fade in={!isCardView} unmountOnExit>
-        <Box sx={{ height: 600, mt: 2 }}>
-          <DataGrid
-            rows={filteredBySearch}
-            columns={columns}
-            pageSize={8}
-            rowsPerPageOptions={[8, 16, 32]}
-            disableSelectionOnClick
-            getRowId={(row) => row.id}
-          />
-        </Box>
-      </Fade>
+        {/* —— 表格视图 —— */}
+        <Fade in={!isCardView} unmountOnExit>
+          <Box
+            sx={{
+              height: "100%",
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <DataGrid
+                rows={filteredBySearch}
+                columns={tableColumns}
+                getRowId={(row) => row.id}
+                pageSize={8}
+                rowsPerPageOptions={[8, 16, 32]}
+                disableSelectionOnClick
+                sx={{
+                  "& .MuiDataGrid-root": {
+                    border: "none",
+                  },
+                  "& .MuiDataGrid-cell": {
+                    outline: "none !important",
+                  },
+                }}
+              />
+            </Box>
+          </Box>
+        </Fade>
+      </Box>
 
-      {/* —— “技术审核” 对话框 —— */}
+      {/* —— 技术审核对话框 —— */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
         <DialogTitle>技术审核</DialogTitle>
         <DialogContent>
@@ -510,24 +567,11 @@ const NewProductPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* —— “新增申请” 对话框 —— */}
-      <Dialog
-        open={addDialogOpen}
-        onClose={() => setAddDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
+      {/* —— 新增申请对话框 —— */}
+      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>新增新品申请</DialogTitle>
         <DialogContent>
-          <Box
-            component="form"
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              mt: 1,
-            }}
-          >
+          <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             <TextField
               label="产品名称"
               fullWidth
