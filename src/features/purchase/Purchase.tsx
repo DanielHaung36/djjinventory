@@ -308,7 +308,7 @@ const NewProductPage: React.FC = () => {
           // borderBottom: `1px solid ${colors.grey[200]}`,
         }}
       >
-        <Header title="新品上线" subtitle="新品审核与流程管理" />
+        <Header title="New Product Launch" subtitle="Audit and manage the product launch process" />
       </Box>
 
       {/* ──── 第 2 行：搜索 + 切换 + 新增 + 导出 区 ──── */}
@@ -522,9 +522,7 @@ const NewProductPage: React.FC = () => {
                 rows={filteredBySearch}
                 columns={tableColumns}
                 getRowId={(row) => row.id}
-                pageSize={8}
-                rowsPerPageOptions={[8, 16, 32]}
-                disableSelectionOnClick
+                showToolbar
                 sx={{
                   "& .MuiDataGrid-root": {
                     border: "none",
