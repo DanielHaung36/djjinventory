@@ -151,7 +151,7 @@ const MainLayout = memo(() => {
             flexGrow: 1,
             p: "0 4",
             display: "flex",
-            bgcolor: "background.default",
+            bgcolor: theme.palette.background.paper,
             flexDirection: "column",
             transition: muiTheme.transitions.create(["margin"], {
               easing: muiTheme.transitions.easing.sharp,

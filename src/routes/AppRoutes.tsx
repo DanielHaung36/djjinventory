@@ -9,15 +9,18 @@ import RegistrationCompletePage from "../features/auth/RegistrationCompletePage"
 
 import MainLayout from "../layouts/MainLayout";
 import Dashboard from "../features/dashboard/Dashboard";
-
+import SalesOverviewPage from "../features/sales/OverviewPage";
 import InventoryOverviewPage from "../features/inventory/InventoryOverviewPage";
 import ProductDetailPage from "../features/products/ProductDetails";
 import ProductDictionaryPage from "../features/products/ProductDictionaryPage";
 import ProductEditPage from "../features/products/ProductEditPage";
 import PurchasePage from "../features/purchase/Purchase";
 import ProcurementPage from "../features/purchase/ProcurementPage";
-import InventoryInboundPage from "../features/inventory/components/InventoryInBoundPage";
+import InventoryPage from "../features/inventory/components/InventoryInBoundPage"
 import InventoryOutboundPage from "../features/inventory/components/InventoryOutBoundPage";
+
+import NewSalesOrderForm from "../features/sales/NewSaleOrder";
+import SalesOrderDetail from "../features/sales/SalesDetails";
 import FAQ from "../features/faq/Faq";
 import UserPermissionEditor from "../features/setting/Rbac";
 import Team from "../features/user";
@@ -49,13 +52,15 @@ export default function AppRoutes() {
             <Route index element={< ProcurementPage/>}></Route>
             <Route path="/purchases/newpurchase" element={< PurchasePage/>} />
           </Route>
-
+          <Route path="/sales/overview" element={<SalesOverviewPage />} />
+          <Route path="/sales/new" element={<NewSalesOrderForm />} />
+          <Route path="/sales/:id" element={<SalesOrderDetail />} />
           {/* 二级路由组：inventory/* */}
           <Route path="inventory">
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<InventoryOverviewPage />} />
             {/* <Route path="details" element={<ProductDictionaryPage  />} /> */}
-            <Route path="inbound" element={<InventoryInboundPage />} />
+            <Route path="inbound" element={<InventoryPage />} />
             <Route path="outbound" element={<InventoryOutboundPage />} />
           </Route>
           <Route path="/products/:code" element={<ProductDetailPage />} />
