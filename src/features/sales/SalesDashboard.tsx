@@ -5,8 +5,8 @@ import { Box, Typography, Button } from "@mui/material";
 import { Plus } from "lucide-react";
 import StatsCards from "./StatsCards";
 import OrdersTable from "./OrdersTable";
-import type { DashboardStats } from "@/types/dashboard";
-import type { SalesOrder } from "@/types/sales-order";
+import type { DashboardStats } from "./types/dashboard";
+import type { SalesOrder } from "./types/sales-order";
 
 
 const mockStats: DashboardStats = {

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -21,7 +21,8 @@
     "@nivo/line": "^0.99.0",
     "@nivo/pie": "^0.99.0",
     "@reduxjs/toolkit": "^2.8.2",
-    "@tailwindcss/vite": "^4.1.6",
+    "@tailwindcss/postcss": "^4.1.8",
+    "@tailwindcss/vite": "^4.1.8",
     "axios": "^1.9.0",
     "body-parser": "^2.2.0",
     "class-variance-authority": "^0.7.1",
@@ -48,6 +49,7 @@
     "yup": "^1.6.1"
   },
   "devDependencies": {
+    "@emotion/babel-plugin": "^11.13.5",
     "@eslint/js": "^9.25.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
@@ -58,8 +60,8 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "msw": "^2.8.2",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.6",
+    "postcss": "^8.5.4",
+    "tailwindcss": "^4.1.8",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.30.1",

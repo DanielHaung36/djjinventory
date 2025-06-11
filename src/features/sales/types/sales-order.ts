@@ -39,7 +39,9 @@ export interface WorkflowStep {
   title: string
   status: "completed" | "current" | "pending"
   date?: string
+  description: string
 }
+
 
 export interface DashboardStats {
   totalOrders: number

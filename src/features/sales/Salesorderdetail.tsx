@@ -1,24 +1,35 @@
-"use client"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+import React, { useState } from "react"
 import {
-  CheckCircle,
-  Circle,
-  Clock,
-  ArrowLeft,
-  Download,
-  User,
-  Calendar,
-  DollarSign,
-  Package,
-  FileText,
-} from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import type { SalesOrder, WorkflowStep } from "@/types/sales-order"
+  Box,
+  Grid,
+  Card,
+  CardHeader,
+  CardContent,
+  Typography,
+  Button,
+  Chip,
+  Divider,
+  Avatar,
+  IconButton,
+  LinearProgress,
+  Paper,
+  Stack,
+} from "@mui/material"
+import OrderSummary from "./components/OrderSummary"
+import {
+  ArrowBackIosNew as ArrowBackIcon,
+  GetApp as DownloadIcon,
+  Description as FileTextIcon,
+  CheckCircleOutline as CheckCircleIcon,
+  RadioButtonUnchecked as CircleIcon,
+  AccessTime as ClockIcon,
+  LocalShipping as PackageIcon,
+
+} from "@mui/icons-material"
+import type { SalesOrder, WorkflowStep } from "./types/sales-order"
+
+import TimeLine from "./components/WorkflowStep"
+import DetailHeader from "./components/DetailHeader"
 
 interface SalesOrderDetailProps {
   order: SalesOrder
@@ -26,263 +37,225 @@ interface SalesOrderDetailProps {
 }
 
 const workflowSteps: WorkflowStep[] = [
-  { id: 1, title: "Deposit Received", status: "completed", date: "2025-05-02" },
-  { id: 2, title: "Order Placed", status: "completed", date: "2025-05-03" },
-  { id: 3, title: "Final Payment", status: "pending" },
-  { id: 4, title: "Pre-Delivery Inspection", status: "current" },
-  { id: 5, title: "Shipment", status: "pending" },
-  { id: 6, title: "Order Closed", status: "pending" },
+  {
+    id: 1,
+    title: "Deposit Received",
+    status: "completed",
+    date: "2025-05-02",
+    description: "Initial payment confirmed",
+  },
+  {
+    id: 2,
+    title: "Order Placed",
+    status: "completed",
+    date: "2025-05-03",
+    description: "Order officially submitted",
+  },
+  {
+    id: 3,
+    title: "Final Payment",
+    status: "pending",
+    description: "Awaiting final payment",
+  },
+  {
+    id: 4,
+    title: "Pre-Delivery Inspection",
+    status: "current",
+    description: "Quality assurance in progress",
+  },
+  {
+    id: 5,
+    title: "Shipment",
+    status: "pending",
+    description: "Ready for dispatch",
+  },
+  {
+    id: 6,
+    title: "Order Closed",
+    status: "pending",
+    description: "Final completion",
+  },
 ]
+
+
+
 
 export function SalesOrderDetail({ order, onBack }: SalesOrderDetailProps) {
   const [selectedStep, setSelectedStep] = useState<number>(4)
 
-  const getStepIcon = (status: WorkflowStep["status"]) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle className="w-5 h-5 text-green-500" />
-      case "current":
-        return <Clock className="w-5 h-5 text-blue-500" />
-      default:
-        return <Circle className="w-5 h-5 text-gray-300" />
-    }
-  }
+  const completedSteps = workflowSteps.filter((step) => step.status === "completed").length
+  const progressPercentage = (completedSteps / workflowSteps.length) * 100
 
-  const getStepBadge = (status: WorkflowStep["status"]) => {
-    switch (status) {
-      case "completed":
-        return <Badge className="bg-green-100 text-green-800 border-green-200">✓</Badge>
-      case "current":
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">●</Badge>
-      default:
-        return (
-          <Badge variant="outline" className="text-gray-500">
-            ○
-          </Badge>
-        )
-    }
-  }
 
+
+  
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="outline" size="icon" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">Sales Order - {order.orderNumber}</h1>
-          <p className="text-muted-foreground mt-1">Track order progress and manage workflow</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Export PDF
-          </Button>
-          <Button size="sm">
-            <FileText className="w-4 h-4 mr-2" />
-            Edit Order
-          </Button>
-        </div>
-      </div>
+    <Box
+      p={3}
+      sx={{
+        background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+        overflowY: "auto",
+      }}
+    >
+      {/* Enhanced Header */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          mb: 4,
+          borderRadius: 3,
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          color: "white",
+        }}
+      >
+          <DetailHeader order={order} workflowSteps={workflowSteps} />
+      </Paper>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Workflow Steps Sidebar */}
-        <div className="lg:col-span-1">
-          <Card className="sticky top-6">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Order Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {workflowSteps.map((step) => (
-                <div
-                  key={step.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                    selectedStep === step.id
-                      ? "bg-blue-50 border border-blue-200 shadow-sm"
-                      : "hover:bg-gray-50 border border-transparent"
-                  }`}
-                  onClick={() => setSelectedStep(step.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    {getStepBadge(step.status)}
-                    <span className="text-xs font-medium text-gray-500">{step.id}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{step.title}</div>
-                    {step.date && <div className="text-xs text-gray-500 mt-0.5">{step.date}</div>}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Order Summary Card */}
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Sales Order - {order.orderNumber}</CardTitle>
-                <Badge className="bg-blue-100 text-blue-800 border-blue-200">Active</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-500 flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    Customer
-                  </div>
-                  <div className="font-semibold text-lg">{order.customer}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-500 flex items-center gap-1">
-                    <Package className="w-3 h-3" />
-                    Machine Model
-                  </div>
-                  <div className="font-semibold text-lg">{order.machineModel || "LM930 Wheel Loader"}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    Order Date
-                  </div>
-                  <div className="font-semibold text-lg">{order.orderDate || "2025-05-02"}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    ETA
-                  </div>
-                  <div className="font-semibold text-lg">{order.eta || "2025-05-15"}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-gray-500 flex items-center gap-1">
-                    <DollarSign className="w-3 h-3" />
-                    Total
-                  </div>
-                  <div className="font-bold text-xl text-green-600">${order.total?.toLocaleString() || "45,000"}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Current Step Details */}
+      <Grid className="workflow" container spacing={4}>
+        {/* Enhanced Workflow Steps Sidebar */}
+        <TimeLine  completedSteps={completedSteps} workflowSteps={workflowSteps}/>
+        {/* Enhanced Main Content */}
+        <Grid item xs={12} lg={8} container direction="column" spacing={4} sx={{ position: "relative", flexGrow: 1 }}>
+          {/* Enhanced Order Summary */}
+            <OrderSummary order={order} />
+          {/* Enhanced Current Step Details */}
           {selectedStep === 4 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-500" />
-                  Pre-Delivery Inspection
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-sm text-gray-500 mb-1">Inspector</div>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs bg-blue-100 text-blue-700">JD</AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">John Doe</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-500 mb-1">Date</div>
-                      <div className="font-medium">2025-05-05</div>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-sm text-gray-500 mb-1">Report</div>
-                      <Button variant="outline" size="sm" className="text-blue-600">
-                        <Download className="w-3 h-3 mr-1" />
-                        Download PDF
-                      </Button>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-500 mb-1">Notes</div>
-                      <div className="font-medium text-green-600">All tests passed successfully.</div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <Grid item>
+              <Card
+                sx={{
+                  borderRadius: 3,
+                  boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
+                  overflow: "hidden",
+                }}
+              >
+                <CardHeader
+                  sx={{
+                    background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
+                    color: "white",
+                  }}
+                  avatar={<ClockIcon sx={{ color: "white" }} />}
+                  title={
+                    <Typography variant="h5" fontWeight="bold">
+                      Pre-Delivery Inspection
+                    </Typography>
+                  }
+                  subheader={
+                    <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.8)" }}>
+                      Current step in progress
+                    </Typography>
+                  }
+                />
+                <CardContent sx={{ p: 4 }}>
+                  <Grid container spacing={4}>
+                    <Grid item xs={12} md={6}>
+                      <Stack spacing={3}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" mb={1}>
+                            Inspector
+                          </Typography>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 2,
+                              borderRadius: 2,
+                              bgcolor: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                            }}
+                          >
+                            <Box display="flex" alignItems="center" gap={2}>
+                              <Avatar sx={{ width: 40, height: 40, bgcolor: "#3B82F6" }}>JD</Avatar>
+                              <Box>
+                                <Typography variant="h6" fontWeight="600">
+                                  John Doe
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  Senior Inspector
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Paper>
+                        </Box>
+
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" mb={1}>
+                            Inspection Date
+                          </Typography>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 2,
+                              borderRadius: 2,
+                              bgcolor: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                            }}
+                          >
+                            <Typography variant="h6" fontWeight="600">
+                              May 5, 2025
+                            </Typography>
+                          </Paper>
+                        </Box>
+                      </Stack>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Stack spacing={3}>
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" mb={1}>
+                            Inspection Report
+                          </Typography>
+                          <Button
+                            variant="contained"
+                            startIcon={<DownloadIcon />}
+                            fullWidth
+                            sx={{
+                              py: 2,
+                              borderRadius: 2,
+                              background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                              "&:hover": {
+                                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                              },
+                            }}
+                          >
+                            Download Report PDF
+                          </Button>
+                        </Box>
+
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" mb={1}>
+                            Status Notes
+                          </Typography>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 3,
+                              borderRadius: 2,
+                              bgcolor: "#f0fdf4",
+                              border: "1px solid #bbf7d0",
+                            }}
+                          >
+                            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                              <CheckCircleIcon sx={{ color: "#10B981", fontSize: 20 }} />
+                              <Typography variant="subtitle2" color="#059669" fontWeight="600">
+                                Inspection Passed
+                              </Typography>
+                            </Box>
+                            <Typography variant="body2" color="#065f46">
+                              All quality tests passed successfully. Machine is ready for final preparation.
+                            </Typography>
+                          </Paper>
+                        </Box>
+                      </Stack>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
           )}
 
-          {/* Order Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Quote Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Quote Number:</span>
-                  <span className="font-mono font-medium">{order.quoteNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Created By:</span>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-xs bg-green-100 text-green-700">
-                        {order.createdBy
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium">{order.createdBy}</span>
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Quote Date:</span>
-                  <span className="font-medium">{order.quoteDate}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Quote PDF:</span>
-                  {order.quotePDF ? (
-                    <Button variant="link" className="h-auto p-0 text-blue-600">
-                      <FileText className="w-3 h-3 mr-1" />
-                      View PDF
-                    </Button>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Enhanced Order Details */}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Additional Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Quote Content:</span>
-                  <span className="font-medium text-right max-w-[200px] truncate">{order.quoteContent || "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Payment Screenshot:</span>
-                  <span className="text-gray-400">-</span>
-                </div>
-                <Separator />
-                <div className="pt-2">
-                  <Button className="w-full" size="sm">
-                    点击编辑后的样式
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
+        </Grid>
+      </Grid>
+    </Box>
   )
 }
+export default SalesOrderDetail
