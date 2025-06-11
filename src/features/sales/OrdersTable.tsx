@@ -41,6 +41,17 @@ import {
   FilterList,
 } from "@mui/icons-material"
 import type { SalesOrder } from "./types/sales-order"
+interface OrderItem {
+  id: string
+  name: string
+  description: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  image?: string
+  specifications?: string[]
+}
+
 
 interface OrdersTableProps {
   orders: SalesOrder[]

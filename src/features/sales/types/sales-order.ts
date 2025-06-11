@@ -1,38 +1,29 @@
 export interface SalesOrder {
   orderNumber: string
-  quoteNumber: string
-  createdBy: string
-  quoteDate: string
   customer: string
-  quotePDF: string
-  paymentScreenshot: string
-  quoteContent: string
-  machineModel: string
-  orderDate: string
-  eta: string
-  total: number
-  depositAmount?: number
-  finalPaymentAmount?: number
-  status:
-    | "deposit-received"
-    | "order-placed"
-    | "final-payment"
-    | "pre-delivery-inspection"
-    | "shipment"
-    | "order-closed"
-  priority: "high" | "medium" | "low"
-  region: string
-  salesRep: string
-  currentStep?: number
+  machineModel?: string
+  orderDate?: string
+  eta?: string
+  total?: number
+  quoteNumber: string
+  quoteDate: string
+  createdBy: string
+  quoteContent?: string
+  items?: OrderItem[]
 }
+
 
 export interface OrderItem {
   id: string
-  type: "deposit" | "final-payment"
-  amount: number
-  receipt: string
-  remark: string
+  name: string
+  description: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  image?: string
+  specifications?: string[]
 }
+
 
 export interface WorkflowStep {
   id: number
