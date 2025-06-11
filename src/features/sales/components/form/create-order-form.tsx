@@ -201,7 +201,7 @@ export default function CreateOrderForm({ onSave, onCancel }: CreateOrderFormPro
   }
 
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 overflow-y-auto full-h">   
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 overflow-y-auto h-full">   
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 mb-6">

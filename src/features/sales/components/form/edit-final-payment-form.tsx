@@ -37,7 +37,7 @@ export default function EditFinalPaymentForm({ orderNumber, onSave, onCancel }: 
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 overflow-y-auto full-height">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-xl p-6 mb-6">

@@ -33,7 +33,7 @@ const ViewModePage = ({viewMode,setViewMode,sampleOrder,isPickingListOpen,setIsP
     alert("Order closed successfully!")
     setViewMode("detail")
   }
-console.log("viewMode:", viewMode)
+console.log("viewMode")
         // Render different views based on viewMode
             if (viewMode === "create") {
                     console.log("Creating new order")
@@ -42,7 +42,7 @@ console.log("viewMode:", viewMode)
 
             if (viewMode === "edit-deposit") {
                 return (
-                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className=" bg-gradient-to-br from-gray-50 to-gray-100 overflow-y-auto">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4">
                     <div className="lg:col-span-3">
                         <EditDepositForm
@@ -64,7 +64,7 @@ console.log("viewMode:", viewMode)
 
             if (viewMode === "edit-payment") {
                 return (
-                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className=" bg-gradient-to-br from-gray-50 to-gray-100 overflow-y-auto" >
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4">
                     <div className="lg:col-span-3">
                         <EditFinalPaymentForm
@@ -86,7 +86,7 @@ console.log("viewMode:", viewMode)
 
             if (viewMode === "edit-shipment") {
                 return (
-                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className=" bg-gradient-to-br from-gray-50 to-gray-100 overflow-y-auto">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4">
                     <div className="lg:col-span-3">
                         <EditShipmentForm
@@ -108,7 +108,7 @@ console.log("viewMode:", viewMode)
 
             if (viewMode === "close-order") {
                 return (
-                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 overflow-y-auto">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4">
                     <div className="lg:col-span-3">
                         <CloseOrderForm

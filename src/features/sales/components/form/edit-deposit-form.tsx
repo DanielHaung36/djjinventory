@@ -31,7 +31,7 @@ export default function EditDepositForm({ orderNumber, onSave, onCancel }: EditD
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 overflow-y-auto h-full">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl p-6 mb-6">

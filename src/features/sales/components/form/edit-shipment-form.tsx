@@ -38,7 +38,7 @@ export default function EditShipmentForm({ orderNumber, onSave, onCancel }: Edit
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 overflow-y-auto full-height">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl p-6 mb-6">
