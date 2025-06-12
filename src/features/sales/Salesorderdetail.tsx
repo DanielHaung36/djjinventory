@@ -16,21 +16,14 @@ import {
   Stack,
 } from "@mui/material"
 import OrderSummary from "./components/OrderSummary"
-import {
-  ArrowBackIosNew as ArrowBackIcon,
-  GetApp as DownloadIcon,
-  Description as FileTextIcon,
-  CheckCircleOutline as CheckCircleIcon,
-  RadioButtonUnchecked as CircleIcon,
-  AccessTime as ClockIcon,
-  LocalShipping as PackageIcon,
 
-} from "@mui/icons-material"
 import type { SalesOrder, WorkflowStep, OrderItem } from "./types/sales-order"
 import ViewModePage from "./components/ViewModePage"
 import TimeLine from "./components/WorkflowStep"
 import DetailHeader from "./components/DetailHeader"
 import PickingListDrawer from "./picking-list-drawer"
+import StageOverview from "./stages/StageOverivew"
+import OrderDetailsTable from "./components/order-details-table"
 interface SalesOrderDetailProps {
   order: SalesOrder
   onBack: () => void
@@ -150,6 +143,9 @@ export const sampleOrder: SalesOrder = {
   items: sampleOrderItems,
 }
 
+
+
+
 export type ViewMode = "list" | "detail" | "create" | "edit-deposit" | "edit-payment" | "edit-shipment" | "close-order"
 
 export function SalesOrderDetail({ order, onBack }: SalesOrderDetailProps) {
@@ -159,6 +155,8 @@ export function SalesOrderDetail({ order, onBack }: SalesOrderDetailProps) {
   const progressPercentage = (completedSteps / workflowSteps.length) * 100
   const [isPickingListOpen, setIsPickingListOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("detail")
+    // Main order detail view
+
   if (viewMode === "create" || viewMode === "edit-deposit" || viewMode === "edit-payment" || viewMode === "edit-shipment" || viewMode === "close-order") {
     return (
       <ViewModePage
@@ -192,146 +190,22 @@ export function SalesOrderDetail({ order, onBack }: SalesOrderDetailProps) {
           <DetailHeader order={order} workflowSteps={workflowSteps} setIsPickingListOpen={setIsPickingListOpen} setViewMode={setViewMode} />
         </Paper>
 
-        <Grid className="workflow" container spacing={4}>
+        <Grid className="workflow" container spacing={4} sx={{flexWrap:'nowrap'}}>
           {/* Enhanced Workflow Steps Sidebar */}
-          <TimeLine completedSteps={completedSteps} setViewMode={setViewMode} viewMode={viewMode} setIsPickingListOpen={setIsPickingListOpen} />
+          <TimeLine completedSteps={completedSteps} setViewMode={setViewMode} viewMode={viewMode} setIsPickingListOpen={setIsPickingListOpen} selectedStep={selectedStep} setSelectedStep={setSelectedStep}/>
           {/* Enhanced Main Content */}
-          <Grid item xs={12} lg={8} container direction="column" spacing={4} sx={{ position: "relative", flexGrow: 1 }}>
+          <Grid className="main-content"  item xs={12} lg={8} container direction="column" spacing={4} sx={{ position: "relative", flexGrow: 1,display:"flex" }}>
             {/* Enhanced Order Summary */}
             <OrderSummary order={order} />
             {/* Enhanced Current Step Details */}
-            {selectedStep === 4 && (
-              <Grid item>
-                <Card
-                  sx={{
-                    borderRadius: 3,
-                    boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <CardHeader
-                    sx={{
-                      background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
-                      color: "white",
-                    }}
-                    avatar={<ClockIcon sx={{ color: "white" }} />}
-                    title={
-                      <Typography variant="h5" fontWeight="bold">
-                        Pre-Delivery Inspection
-                      </Typography>
-                    }
-                    subheader={
-                      <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.8)" }}>
-                        Current step in progress
-                      </Typography>
-                    }
-                  />
-                  <CardContent sx={{ p: 4 }}>
-                    <Grid container spacing={4}>
-                      <Grid item xs={12} md={6}>
-                        <Stack spacing={3}>
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary" mb={1}>
-                              Inspector
-                            </Typography>
-                            <Paper
-                              elevation={0}
-                              sx={{
-                                p: 2,
-                                borderRadius: 2,
-                                bgcolor: "#f8fafc",
-                                border: "1px solid #e2e8f0",
-                              }}
-                            >
-                              <Box display="flex" alignItems="center" gap={2}>
-                                <Avatar sx={{ width: 40, height: 40, bgcolor: "#3B82F6" }}>JD</Avatar>
-                                <Box>
-                                  <Typography variant="h6" fontWeight="600">
-                                    John Doe
-                                  </Typography>
-                                  <Typography variant="body2" color="text.secondary">
-                                    Senior Inspector
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            </Paper>
-                          </Box>
+          {/* Order Details Table */}
+          {sampleOrder.items && sampleOrder.items.length > 0 && selectedStep===1 && (
+            <OrderDetailsTable items={sampleOrder.items} currency="$" />
+          )}
 
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary" mb={1}>
-                              Inspection Date
-                            </Typography>
-                            <Paper
-                              elevation={0}
-                              sx={{
-                                p: 2,
-                                borderRadius: 2,
-                                bgcolor: "#f8fafc",
-                                border: "1px solid #e2e8f0",
-                              }}
-                            >
-                              <Typography variant="h6" fontWeight="600">
-                                May 5, 2025
-                              </Typography>
-                            </Paper>
-                          </Box>
-                        </Stack>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Stack spacing={3}>
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary" mb={1}>
-                              Inspection Report
-                            </Typography>
-                            <Button
-                              variant="contained"
-                              startIcon={<DownloadIcon />}
-                              fullWidth
-                              sx={{
-                                py: 2,
-                                borderRadius: 2,
-                                background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                                "&:hover": {
-                                  background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                                },
-                              }}
-                            >
-                              Download Report PDF
-                            </Button>
-                          </Box>
-
-                          <Box>
-                            <Typography variant="subtitle2" color="text.secondary" mb={1}>
-                              Status Notes
-                            </Typography>
-                            <Paper
-                              elevation={0}
-                              sx={{
-                                p: 3,
-                                borderRadius: 2,
-                                bgcolor: "#f0fdf4",
-                                border: "1px solid #bbf7d0",
-                              }}
-                            >
-                              <Box display="flex" alignItems="center" gap={1} mb={1}>
-                                <CheckCircleIcon sx={{ color: "#10B981", fontSize: 20 }} />
-                                <Typography variant="subtitle2" color="#059669" fontWeight="600">
-                                  Inspection Passed
-                                </Typography>
-                              </Box>
-                              <Typography variant="body2" color="#065f46">
-                                All quality tests passed successfully. Machine is ready for final preparation.
-                              </Typography>
-                            </Paper>
-                          </Box>
-                        </Stack>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )}
-
+            {
+              <StageOverview selectedStep={selectedStep} />
+            }
             {/* Enhanced Order Details */}
 
           </Grid>

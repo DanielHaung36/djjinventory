@@ -16,7 +16,7 @@ interface OrderSummaryProps {
 
 const OrderSummary = ({ order }: OrderSummaryProps) => {
     return (
-        <Grid item>
+        <Grid item >
             <Card
                 sx={{
                     borderRadius: 3,
@@ -80,7 +80,7 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
                                 isPrice: true,
                             },
                         ].map((item, index) => (
-                            <Grid item xs={12} sm={6} lg={2.4} key={index}>
+                            <Grid item xs={12} sm={6} lg={2.4} key={index} display={"flex"} flexGrow={1}>
                                 <Paper
                                     elevation={0}
                                     sx={{
@@ -89,13 +89,16 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
                                         bgcolor: "#f8fafc",
                                         border: "1px solid #e2e8f0",
                                         transition: "all 0.3s ease",
+                                        width: "100%",
                                         "&:hover": {
                                             transform: "translateY(-2px)",
                                             boxShadow: "0 8px 25px rgba(0,0,0,0.1)",
                                         },
+                                        display: "flex",
+                                        flexDirection: "column",
                                     }}
                                 >
-                                    <Box display="flex" alignItems="center" mb={2}>
+                                    <Box display="flex" alignItems="center" mb={2} flexGrow={1}>
                                         <Box
                                             sx={{
                                                 p: 1,

@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react";
+import { use, useState } from "react";
 import { Box, Typography, Button } from "@mui/material";
 import { Plus } from "lucide-react";
 import StatsCards from "./StatsCards";
 import OrdersTable from "./OrdersTable";
 import type { DashboardStats } from "./types/dashboard";
 import type { SalesOrder } from "./types/sales-order";
-
+import CreateOrderForm from "./components/form/create-order-form";
+import { useNavigate } from "react-router-dom";
 
 const mockStats: DashboardStats = {
   totalOrders: 156,
@@ -127,8 +128,7 @@ export function SalesDashboard({ onNewOrder, onViewOrder }: SalesDashboardProps)
   const handleFilterChange = (filter: string) => {
     setStatusFilter(filter)
   }
-
- return (
+   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3, overflow: "auto", px: 4, py: 3 }}>
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

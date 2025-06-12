@@ -1,20 +1,16 @@
 import React from 'react';
-import NewSalesOrderForm from './Newsalesorderform';
+import CreateOrderForm from './components/form/create-order-form';
 import { useNavigate } from "react-router-dom"
 import type { SalesOrder } from './types/sales-order';
 
 export default function SalesOverviewPage() {
   const navigate = useNavigate()
-
-  const handleBack = () => navigate("/sales/overview")
-  const handleSubmit = (data: any) => {
-    console.log("Form Submitted", data)
-    navigate("/sales/overview")
+  const handleCreateOrder = (order: Partial<SalesOrder>) => {
+    console.log("New order created:", order)
+    // onNewOrder()
   }
+
   return (
-    <NewSalesOrderForm
-      onBack={handleBack}
-      onSubmit={handleSubmit}
-    />
+    <CreateOrderForm  onSave={handleCreateOrder} onCancel={() => {navigate("/sales/overview")}} />
   )
 }
