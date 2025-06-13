@@ -157,7 +157,7 @@ const MainLayout = memo(() => {
               easing: muiTheme.transitions.easing.sharp,
               duration: muiTheme.transitions.duration.leavingScreen,
             }),
-            overflow: "hidden",
+            overflow: "auto",
             minWidth: 0, // ✅ 允许子元素水平缩小
             height: `calc(100% - 4rem)`,
             width: "100%",

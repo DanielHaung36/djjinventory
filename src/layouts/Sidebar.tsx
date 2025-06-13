@@ -27,6 +27,7 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PeopleIcon from "@mui/icons-material/People";
 import InboxIcon from "@mui/icons-material/Inbox";
 import UserAvatar from "../components/UserAvatar";
+import {FileQuestion } from "lucide-react"
 
 const drawerWidth = 240;
 const collapsedWidth = 64;
@@ -68,6 +69,12 @@ const menuSections: Section[] = [
   {
     items: [
       { key: "dashboard", label: "Dashboard", Icon: HomeIcon, path: "/dashboard" },
+    {
+      path: "/quotes",
+      Icon: FileQuestion,
+      key: "quotes",
+      label: "Quotes",
+    },
       {
         key: "sales",
         label: "Sales",

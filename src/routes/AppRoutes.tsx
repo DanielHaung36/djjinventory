@@ -17,8 +17,15 @@ import ProductEditPage from "../features/products/ProductEditPage";
 import PurchasePage from "../features/purchase/Purchase";
 import ProcurementPage from "../features/purchase/ProcurementPage";
 import InventoryPage from "../features/inventory/components/InventoryInBoundPage"
-import InventoryOutboundPage from "../features/inventory/components/InventoryOutBoundPage";
 
+import QuotesPage from "../features/quotes/page";
+import NewQuotePage from "../features/quotes/new/page";
+import QuoteDetailPage from "../features/quotes/[id]/page";
+import EditQuotePage from "../features/quotes/[id]/edit/page";
+import InventoryOutboundPage from "../features/inventory/components/InventoryOutBoundPage";
+import DashboardPage from "../features/inventory/pages/pages";
+import NewInboundPage from "../features/inventory/pages/components/inbound/new/page";
+import NewOutboundPage from "../features/inventory/pages/components/outbound/new/page";
 import NewSalesOrderForm from "../features/sales/NewSaleOrder";
 import SalesOrderDetail from "../features/sales/SalesDetails";
 import FAQ from "../features/faq/Faq";
@@ -47,11 +54,21 @@ export default function AppRoutes() {
 
           {/* 一级路由 */}
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="quotes" >
+               <Route index element={< QuotesPage/>}></Route>
+            <Route path="/quotes/new" element={< NewQuotePage/>} />
+            <Route path="/quotes/:id" element={< QuoteDetailPage/>} />
+            <Route path="/quotes/:id/edit" element={< EditQuotePage/>} />
+          </Route>
+
           <Route path="products" element={<ProductDictionaryPage />} />
+
+
           <Route path="purchases">
             <Route index element={< ProcurementPage/>}></Route>
             <Route path="/purchases/newpurchase" element={< PurchasePage/>} />
           </Route>
+
           <Route path="/sales/overview" element={<SalesOverviewPage />} />
           <Route path="/sales/new" element={<NewSalesOrderForm />} />
           <Route path="/sales/:id" element={<SalesOrderDetail />} />
@@ -60,7 +77,10 @@ export default function AppRoutes() {
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<InventoryOverviewPage />} />
             {/* <Route path="details" element={<ProductDictionaryPage  />} /> */}
-            <Route path="inbound" element={<InventoryPage />} />
+            <Route path="inbound" element={<DashboardPage />} />
+            <Route path="/inventory/inbound/new" element={<NewInboundPage />} />
+            <Route path="/inventory/outbound/new" element={<NewOutboundPage />} />
+
             <Route path="outbound" element={<InventoryOutboundPage />} />
           </Route>
           <Route path="/products/:code" element={<ProductDetailPage />} />

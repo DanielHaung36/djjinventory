@@ -293,8 +293,8 @@ const InventoryOverviewPage: React.FC = () => {
     enableRowSelection: true,
     enableColumnFilters: true, // ← 打开列过滤
     enableColumnFilterModes: true, // ← 打开多种过滤模式（=、≠、>、<…）
-    enableStickyHeader: true,
-    enableStickyFooter: true,
+    enableStickyHeader: false,
+    enableStickyFooter: false,
     initialState: {
       showGlobalFilter: true,
       showColumnFilters: true,
@@ -366,9 +366,9 @@ const InventoryOverviewPage: React.FC = () => {
 
       <MenuItem
         key="info"
-        onClick={() => { closeMenu(); 
-          
-          // navigate(`/products/${row.original.djj_code}`); 
+        onClick={() => { closeMenu();
+
+          // navigate(`/products/${row.original.djj_code}`);
             setSelectedRow(row.original);
             setDrawerOpen(true);
         }}
@@ -387,22 +387,22 @@ const InventoryOverviewPage: React.FC = () => {
         sx={{ }}
       ><DeleteIcon color="error" sx={{ mr: 1 }} />删除</MenuItem>,
     ],
-    renderTopToolbarCustomActions: ({ table }) => (
-      <Button
-        variant="outlined"
-        onClick={() => {
-          table.setCreatingRow(true); //simplest way to open the create row modal with no default values
-          //or you can pass in a row object to set default values with the createRow helper function
-          // table.setCreatingRow(
-          //   createRow(table, {
-          //     //optionally pass in default values for the new row, useful for nested data or other complex scenarios
-          //   }),
-          // );
-        }}
-      >
-        + Create New Inventory
-      </Button>
-    ),
+    // renderTopToolbarCustomActions: ({ table }) => (
+    //   <Button
+    //     variant="outlined"
+    //     onClick={() => {
+    //       table.setCreatingRow(true); //simplest way to open the create row modal with no default values
+    //       //or you can pass in a row object to set default values with the createRow helper function
+    //       // table.setCreatingRow(
+    //       //   createRow(table, {
+    //       //     //optionally pass in default values for the new row, useful for nested data or other complex scenarios
+    //       //   }),
+    //       // );
+    //     }}
+    //   >
+    //     + Create New Inventory
+    //   </Button>
+    // ),
         onCreatingRowCancel: () => setValidationErrors({}),
     onCreatingRowSave: ({ values, table }) => {
       setTableData((prev) => [
@@ -428,7 +428,7 @@ const InventoryOverviewPage: React.FC = () => {
     muiToolbarAlertBannerProps:{
       sx:{
         display:'none'
-      } 
+      }
     },
   });
 
@@ -443,18 +443,19 @@ const InventoryOverviewPage: React.FC = () => {
       sx={{
         flex: 1,
         display: "flex",
-        px: 4,
-        py: 3,
-        m: 1,
-        height: "100%",
+        // px: 4,
+        // py: 3,
+        // m: 1,
+        // height: "100%",
+        px:0,
         bgcolor: "background.paper",
       }}
     >
-      <Stack sx={{ display: "flex", width: "100%", height: "100%", flex: 1 }}>
-        <Header
-          title="Inventory Overview"
-          subtitle="Managing the Inventory items"
-        ></Header>
+      <Stack sx={{ display: "flex", width: "100%",  }}>
+        {/*<Header*/}
+        {/*  title="Inventory Overview"*/}
+        {/*  subtitle="Managing the Inventory items"*/}
+        {/*></Header>*/}
         <MaterialReactTable table={table} />
       </Stack>
     </Box>
@@ -471,12 +472,14 @@ const InventoryOverviewPage: React.FC = () => {
       </Backdrop>
 
       <Container
+        disableGutters
         maxWidth={false}
         sx={{
           display: "flex",
           flexDirection: "column",
-          height: "100%",
+          height: "auto",
           minHeight: 0,
+          px:0,
         }}
       >
         {tableContent}
