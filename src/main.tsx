@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 import { store } from "./app/store";
 import { ThemeProvider, CssBaseline, GlobalStyles } from '@mui/material';
 import theme from './app/theme';
+import "./i18n"
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

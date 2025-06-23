@@ -14,24 +14,27 @@ import InventoryOverviewPage from "../features/inventory/InventoryOverviewPage";
 import ProductDetailPage from "../features/products/ProductDetails";
 import ProductDictionaryPage from "../features/products/ProductDictionaryPage";
 import ProductEditPage from "../features/products/ProductEditPage";
-import PurchasePage from "../features/purchase/Purchase";
-import ProcurementPage from "../features/purchase/ProcurementPage";
-import InventoryPage from "../features/inventory/components/InventoryInBoundPage"
-
+import PurchasePage from "../features/procure/Purchase";
+import ProcurementPage from "../features/procure/ProcurementPage";
+import ProcureDashboardPage from "../features/procure/DashboardOverview";
+import InboundPage from "../features/inventory/components/InventoryInboundPage";
+import QuoteApprovalsPage from "../features/quotes/approvals";
 import QuotesPage from "../features/quotes/page";
 import NewQuotePage from "../features/quotes/new/page";
 import QuoteDetailPage from "../features/quotes/[id]/page";
 import EditQuotePage from "../features/quotes/[id]/edit/page";
-import InventoryOutboundPage from "../features/inventory/components/InventoryOutBoundPage";
+import OutboundPage from "../features/inventory/components/InventoryOutBoundPage";
 import DashboardPage from "../features/inventory/pages/pages";
 import NewInboundPage from "../features/inventory/pages/components/inbound/new/page";
 import NewOutboundPage from "../features/inventory/pages/components/outbound/new/page";
 import NewSalesOrderForm from "../features/sales/NewSaleOrder";
 import SalesOrderDetail from "../features/sales/SalesDetails";
+import AdminSalesOrdersPage from "../features/sales/AdminSalesOrder";
 import FAQ from "../features/faq/Faq";
 import UserPermissionEditor from "../features/setting/Rbac";
 import Team from "../features/user";
 import Form from "../features/user/components/Form";
+
 export default function AppRoutes() {
   return (
     <BrowserRouter>
@@ -55,33 +58,36 @@ export default function AppRoutes() {
           {/* 一级路由 */}
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="quotes" >
-               <Route index element={< QuotesPage/>}></Route>
+            <Route index element={< QuotesPage/>}></Route>
+            <Route path="/quotes/overview" element={< QuotesPage/>} />
             <Route path="/quotes/new" element={< NewQuotePage/>} />
             <Route path="/quotes/:id" element={< QuoteDetailPage/>} />
             <Route path="/quotes/:id/edit" element={< EditQuotePage/>} />
+            <Route path="/quotes/approvals" element={<QuoteApprovalsPage/>} />
           </Route>
 
           <Route path="products" element={<ProductDictionaryPage />} />
 
 
-          <Route path="purchases">
-            <Route index element={< ProcurementPage/>}></Route>
-            <Route path="/purchases/newpurchase" element={< PurchasePage/>} />
+          <Route path="procure">
+            <Route index element={< ProcureDashboardPage/>}></Route>
+            <Route path="/procure/newpurchase" element={< PurchasePage/>} />
           </Route>
 
           <Route path="/sales/overview" element={<SalesOverviewPage />} />
           <Route path="/sales/new" element={<NewSalesOrderForm />} />
           <Route path="/sales/:id" element={<SalesOrderDetail />} />
+          <Route path="/sales/admin" element={<AdminSalesOrdersPage />} />
+
           {/* 二级路由组：inventory/* */}
           <Route path="inventory">
             <Route index element={<Navigate to="overview" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="overview" element={<InventoryOverviewPage />} />
-            {/* <Route path="details" element={<ProductDictionaryPage  />} /> */}
-            <Route path="inbound" element={<DashboardPage />} />
+            <Route path="inbound" element={<InboundPage />} />
             <Route path="/inventory/inbound/new" element={<NewInboundPage />} />
             <Route path="/inventory/outbound/new" element={<NewOutboundPage />} />
-
-            <Route path="outbound" element={<InventoryOutboundPage />} />
+            <Route path="outbound" element={<OutboundPage />} />
           </Route>
           <Route path="/products/:code" element={<ProductDetailPage />} />
           <Route path="/products/edit/:code" element={<ProductEditPage />} />

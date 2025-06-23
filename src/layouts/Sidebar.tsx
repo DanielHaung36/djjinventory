@@ -74,14 +74,19 @@ const menuSections: Section[] = [
       Icon: FileQuestion,
       key: "quotes",
       label: "Quotes",
+       children: [
+         { key: "quotes-overview", label: "Overview", Icon: StarBorder, path: "/quotes/overview" },
+          { key: "quotesapproval", label: "Quote Approvals", path: "/quotes/approvals" },
+        ],
     },
       {
         key: "sales",
         label: "Sales",
         Icon: StarBorder,
         children: [
-          { key: "sales-overview", label: "Overview", Icon: StarBorder, path: "/sales/overview" },
-          { key: "sales-details", label: "Details", Icon: StarBorder, path: "/sales/details" },
+          { key: "sales-overview", label: "Overview", path: "/sales/overview" },
+          { key: "sales-details", label: "Details",  path: "/sales/details" },
+          { key: "sales-admin", label: "Manage",  path: "/sales/admin" },
         ],
       },
       {
@@ -89,6 +94,7 @@ const menuSections: Section[] = [
         label: "Inventory",
         Icon: Inventory2Icon,
         children: [
+          { key: "inv-dashboard", label: "Dashboard", path: "/inventory/dashboard" },
           { key: "inv-overview", label: "Overview", path: "/inventory/overview" },
           { key: "inv-inbound", label: "InBound", path: "/inventory/inbound" },
           { key: "inv-outbound", label: "OutBound", path: "/inventory/outbound" },
@@ -96,12 +102,17 @@ const menuSections: Section[] = [
       },
       { key: "products", label: "Products", Icon: CategoryIcon, path: "/products" },
       {
-        key: "purchases",
-        label: "Purchases",
+        key: "procure",
+        label: "Procure",
         Icon: ShoppingCartIcon,
         children: [
-          { key: "purchase", label: "Purchase", path: "/purchases" },
-          { key: "newproduct", label: "NewProduct", path: "/purchases/newpurchase" },
+          { key: "procure", label: "Dashboard", path: "/dashboard" },
+          { key: "procurement ", label: "Procurement", path: "/dashboard/procurement" },
+          { key: "procureproducts ", label: "Products ", path: "/dashboard/products" },
+          { key: "productsnew ", label: "New Product", path: "/dashboard/products/new" },
+          { key: "procureadmin ", label: "Admin Approvals", path: "/dashboard/admin" },
+          { key: "procurereview ", label: "Product Reviews", path: "/dashboard/admin/products" },
+          { key: "procurenewproduct", label: "NewProduct", path: "/purchases/newpurchase" },
         ],
       },
     ],

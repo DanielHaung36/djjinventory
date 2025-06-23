@@ -7,13 +7,15 @@ import {
   Typography,
   IconButton,
   useTheme,
+  Box
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined';
 import AccountCircle from '@mui/icons-material/AccountCircle';
-
+import { ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { useTranslation } from "react-i18next";
 export interface TopBarProps {
   open: boolean;
   onToggle: () => void;
@@ -27,6 +29,8 @@ const TopBar: FC<TopBarProps> = memo(({ open, onToggle }) => {
   const theme = useTheme();
  // 通过 theme.spacing 计算出实际像素值（字符串带单位）
   const expandedW = theme.spacing(EXPANDED_DRAWER_UNITS);
+  // 在组件内部
+  const { i18n } = useTranslation();
   const collapsedW = theme.spacing(COLLAPSED_DRAWER_UNITS);
   return (
     <AppBar
@@ -48,33 +52,39 @@ const TopBar: FC<TopBarProps> = memo(({ open, onToggle }) => {
         }),
       }}
     >
-      <Toolbar>
-        {/* 菜单折叠按钮 */}
-        <IconButton
-          edge="start"
-          color="inherit"
-          onClick={onToggle}
-          sx={{ mr: 2 }}
-        >
-          {open ? <MenuOpenIcon /> : <MenuIcon />}
-        </IconButton>
+     <Toolbar sx={{ justifyContent: 'space-between' }}>
+  {/* 左侧：菜单折叠 + Logo */}
+  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+    <IconButton edge="start" onClick={onToggle} sx={{ mr: 2 }}>
+      {open ? <MenuOpenIcon /> : <MenuIcon />}
+    </IconButton>
+    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      DJJ
+    </Typography>
+  </Box>
 
-        {/* 标题或 Logo */}
-        <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
-          DJJ
-        </Typography>
+  {/* 右侧：搜索、通知、语言切换、个人中心 */}
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* 语言切换 */}
+    <ToggleButtonGroup
+      size="small"
+      value={i18n.language}
+      exclusive
+      onChange={(_, lang) => lang && i18n.changeLanguage(lang)}
+      sx={{ '& .MuiToggleButton-root': { px: 1.5, textTransform: 'none' } }}
+    >
+      <ToggleButton value="en">EN</ToggleButton>
+      <ToggleButton value="cn">中</ToggleButton>
+    </ToggleButtonGroup>
+    
+    <IconButton><SearchOutlinedIcon /></IconButton>
+    <IconButton><NotificationsOutlinedIcon /></IconButton>
 
-        {/* 右侧操作 */}
-        <IconButton size="large" color="inherit">
-          <SearchOutlinedIcon />
-        </IconButton>
-        <IconButton size="large" color="inherit">
-          <NotificationsOutlinedIcon />
-        </IconButton>
-        <IconButton size="large" color="inherit">
-          <AccountCircle />
-        </IconButton>
-      </Toolbar>
+
+
+    <IconButton><AccountCircle /></IconButton>
+  </Box>
+</Toolbar>
     </AppBar>
   );
 });

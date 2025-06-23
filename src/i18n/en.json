@@ -1,0 +1,56 @@
+{
+  "inventoryColumns": {
+    "partNumberCN":       "Part No (CN)",
+    "partNumberAU":       "Part No (AU)",
+    "barcode":            "Barcode",
+    "description":        "Description",
+    "descriptionChinese": "Chinese Description",
+    "warehouse":          "Warehouse",
+    "siteLocation":       "Site Location",
+    "asset":              "Asset",
+    "customer":           "Customer",
+    "note":               "Note",
+    "partGroup":          "Part Group",
+    "partLife":           "Part Life",
+    "oem":                "OEM",
+    "purchasePrice":      "Purchase Price",
+    "unitPrice":          "Unit Price",
+    "actualQty":          "Actual Qty",
+    "lockedQty":          "Locked Qty",
+    "availableQty":       "Available Qty",
+    "operator":           "Operator",
+    "operationTime":      "Operation Time",
+    "edit":               "Edit",
+    "detail":            "View Details",
+    "transactions": "View Transactions",
+    "inStock":           "In Stock",
+    "outStock":          "Out Stock",
+    "delete":            "Delete",
+    "createNew":         "+ Create New Inventory",
+
+    "lowStockWarning":   "⚠️ Stock below {{threshold}}, please restock",
+    "availableStock":    "Available Stock: {{val}}"
+    
+  },
+  "productColumns": {
+    "partNumberCN":       "Part No (CN)",
+    "partNumberAU":       "Part No (AU)",
+    "description":        "Description",
+    "descriptionChinese": "Chinese Desc.",
+    "asset":              "Asset",
+    "customer":           "Customer",
+    "note":               "Note",
+    "partGroup":          "Part Group",
+    "partLife":           "Part Life",
+    "oem":                "OEM",
+    "purchasePrice":      "Purchase Price",
+    "unitPrice":          "Unit Price",
+    "detail":            "View Details",
+    "edit":               "Edit",
+    "inStock":           "In Stock",
+    "outStock":          "Out Stock",
+    "delete":            "Delete",
+    "createNew":         "+ Create New Inventory"
+
+  }
+}
