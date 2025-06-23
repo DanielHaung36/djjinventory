@@ -250,11 +250,11 @@ const ProductDictionaryPage: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
-        flex: 1,
+        // flex: 1,
         // overflow: "hidden",
         boxShadow: theme.shadows[1],
         borderRadius: 1,
-        height: "100%",
+        // height: "100%",
         "& .MuiTableRow-root:nth-of-type(odd)": {
           backgroundColor: alpha(theme.palette.primary.light, 0.13),
         },
@@ -275,10 +275,11 @@ const ProductDictionaryPage: React.FC = () => {
     muiTableContainerProps: {
       sx: {
         minHeight: 0,
-        height: "100%",
-        overflow: "auto",
-        display: "flex",
-        flexGrow: 1,
+         height: '100%',
+        maxHeight: 'none',
+
+        // display: "flex",
+        // flexGrow: 1,
       },
     },
     renderRowActionMenuItems: ({ row, closeMenu }) => [
@@ -366,23 +367,11 @@ const ProductDictionaryPage: React.FC = () => {
         <CircularProgress color="inherit" />
       </Backdrop>
 
-    <Box
-      sx={{
-        flex: 1,
-        display: "flex",
-        px: 4,
-        py: 3,
-        m: 1,
-        height: "100%",
-        bgcolor: "background.paper",
-      }}
-    >
+
       <Stack sx={{ display: "flex", width: "100%", height: "100%", flex: 1 }}>
-        
         <Header title="Product List" subtitle="Looking for the product information" ></Header>
         <MaterialReactTable table={table} />
       </Stack>
-    </Box>
    </>
   );
 };

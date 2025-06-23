@@ -2,8 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { Link } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -54,7 +54,8 @@ interface MenuSection {
 export function Sidebar() {
   const { isCollapsed, isMobile, toggle } = useSidebar()
   const { t } = useLanguage()
-  const pathname = usePathname()
+  const location = useLocation()
+  const pathname = location.pathname
   const [openItems, setOpenItems] = useState<string[]>([])
   const [showText, setShowText] = useState(!isCollapsed)
 
@@ -82,7 +83,7 @@ export function Sidebar() {
               key: "quotes-approval",
               label: "Quote Approvals",
               icon: ClipboardCheck,
-              href: "/approvals",
+              href: "/quotes/approvals",
               badge: "12",
             },
           ],
@@ -98,17 +99,17 @@ export function Sidebar() {
               icon: Eye,
               href: "/sales/overview",
             },
-            {
-              key: "sales-details",
-              label: "Details",
-              icon: FileText,
-              href: "/sales/details",
-            },
+            // {
+            //   key: "sales-details",
+            //   label: "Details",
+            //   icon: FileText,
+            //   href: "/sales/details",
+            // },
             {
               key: "sales-admin",
               label: "Manage",
               icon: ShieldAlert,
-              href: "/admin/sales-orders",
+              href: "/sales/admin",
             },
           ],
         },
@@ -190,12 +191,6 @@ export function Sidebar() {
               icon: Star,
               href: "/procure/admin/products",
             },
-            {
-              key: "procure-newproduct",
-              label: "NewProduct",
-              icon: Plus,
-              href: "/procure/newpurchase",
-            },
           ],
         },
       ],
@@ -224,13 +219,13 @@ export function Sidebar() {
           key: "team-settings",
           label: "Team Settings",
           icon: UserCheck,
-          href: "/users/permissions",
+          href: "/team",
         },
         {
           key: "global-settings",
           label: "Global Settings",
           icon: Cog,
-          href: "/settings",
+          href: "/settings/global",
         },
       ],
     },
@@ -392,7 +387,7 @@ export function Sidebar() {
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="overflow-hidden transition-all duration-200">
-            <div className="ml-2 border-l-2 border-blue-100 pl-4 space-y-1 py-2">
+            <div className="ml-2 border-l-2 border-blue-100 pl-4 space-y-1 py-2 max-w-[250px]">
               {item.children?.map((child) => renderNavItem(child, level + 1))}
             </div>
           </CollapsibleContent>
@@ -415,7 +410,7 @@ export function Sidebar() {
         )}
         asChild
       >
-        <Link href={item.href!}>
+        <Link to={item.href!}>
           <item.icon
             className={cn(
               "h-[18px] w-[18px] shrink-0 transition-all duration-200",

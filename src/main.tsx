@@ -2,16 +2,22 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { Toaster } from "@/components/ui/toaster"
+import { SidebarProvider } from "@/layout/sidebar-provider"
+import { ThemeProvider } from "@/components/theme-provider"
+import { LanguageProvider } from "@/layout/language-provider"
 import { Provider } from "react-redux";
 import { store } from "./app/store";
-import { ThemeProvider, CssBaseline, GlobalStyles } from '@mui/material';
+import { ThemeProvider as Tper, CssBaseline, GlobalStyles } from '@mui/material';
 import theme from './app/theme';
 import "./i18n"
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <Provider store={store}>
-      <ThemeProvider theme={theme}>
+      <LanguageProvider>
+      <Tper theme={theme}>
         <CssBaseline />
         {/* GlobalStyles 必须是自闭合的，不接受 children */}
         <GlobalStyles
@@ -19,13 +25,18 @@ createRoot(document.getElementById('root')!).render(
             "html, body, #root": {
               height: "100%",
               margin: 0,
-              overflow: "hidden",
+              overflow: "auto",
             },
           }}
         />
         {/* 然后再渲染 App */}
+         <SidebarProvider>
         <App />
-      </ThemeProvider>
+        <Toaster />
+        </SidebarProvider>
+      </Tper>
+      </LanguageProvider>
     </Provider>
+    </ThemeProvider>
   </StrictMode>
 );

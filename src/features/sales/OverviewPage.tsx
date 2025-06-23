@@ -10,10 +10,10 @@ export default function SalesOverviewPage() {
   const handleViewOrder = (orderId: string) => navigate(`/sales/${orderId}`)
 
   return (
-    <Box  sx={{display: 'flex', flexDirection: 'column',flexGrow: 1,overflow: 'auto',height: "100vh",          // 整个视口高度
+    <Box  sx={{display: 'flex', flexDirection: 'column',flexGrow: 1,overflow: 'hidden',height: "100%",          // 整个视口高度
         minHeight: 0, // 允许子元素水平缩小
         width: "100%",}}> 
-        <Box  sx={{display: 'flex',flexDirection: 'column',flexGrow: 1,gap: 4, padding: 4,overflow: 'auto',height: "100vh"}}>
+        <Box  sx={{display: 'flex',flexDirection: 'column',flexGrow: 1,gap: 4,overflow: 'auto',height: "100%"}}>
              <SalesDashboard
                 onNewOrder={handleNewOrder}
                 onViewOrder={(order?:SalesOrder) => handleViewOrder(order?.orderNumber||"")}

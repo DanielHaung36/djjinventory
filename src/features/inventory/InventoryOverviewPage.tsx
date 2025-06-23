@@ -446,7 +446,7 @@ const InventoryOverviewPage: React.FC = () => {
         // px: 4,
         // py: 3,
         // m: 1,
-        // height: "100%",
+        height: "100%",
         px:0,
         bgcolor: "background.paper",
       }}

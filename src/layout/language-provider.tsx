@@ -146,7 +146,7 @@ const translations = {
     "dashboard.quick-actions": "快速操作",
 
     // System
-    "system.title": "销售管理系统",
+    "system.title": "DJJ Equipment",
     "system.language": "语言",
     "system.theme": "主题",
     "system.expand-sidebar": "展开侧边栏",

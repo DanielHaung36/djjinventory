@@ -1,371 +1,238 @@
-// src/pages/Dashboard.tsx
-import React from "react";
+"use client"
+
+import { memo, useMemo } from "react"
+import { Link } from "react-router-dom"
 import {
-  Box,
-  Button,
-  Typography,
-  useTheme,
-  useMediaQuery,
-  Paper,
-} from "@mui/material";
-import { tokens } from "../../theme";
-import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
-import InventoryIcon from "@mui/icons-material/Inventory";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import WarningIcon from "@mui/icons-material/Warning";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
-import Header from "../../components/Header";
-import LineChart from "../../components/LineChart";
-import PieChart from "../../components/PieChart";
-import BarChart from "../../components/BarChart";
-import StatBox from "../../components/StatBox";
+  FileText,
+  Package,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  ArrowUpRight,
+  Activity,
+  Download,
+} from "lucide-react"
 
-// 以下全部数据都来自你现有的 mockData，请根据自己业务替换
-import {
-  totalInventoryValue,
-  inventoryUsageRate,
-  lastInventoryUsageRate,
-  monthlySalesOrders,
-  salesOrderCompletionRate,
-  lastSalesOrderRate,
-  lowStockSKUCount,
-  lastPeriodLowStockSKUCount,
-  weeklyProcurementCost,
-  lastWeekProcurementCost,
-  goalProcurement,
-  inventoryTrend,
-  salesByCategory,
-  recentOrders,
-  topSellingSKUs,
-  procurementVsSales,
-} from "../../data/mockData";
+// 使用 memo 优化的统计卡片组件
+const StatCard = memo(({ title, value, change, icon: Icon, color, bgColor }) => (
+  <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow duration-200">
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-sm font-medium text-gray-600">{title}</h3>
+      <div className={`p-2 rounded-lg ${bgColor}`}>
+        <Icon className={`h-4 w-4 ${color}`} />
+      </div>
+    </div>
+    <div className="text-2xl font-bold text-gray-900 mb-1">{value}</div>
+    <p className="text-xs text-gray-500">{change}</p>
+  </div>
+))
 
-const Dashboard: React.FC = () => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+// 使用 memo 优化的活动项组件
+const ActivityItem = memo(({ activity }) => (
+  <div className="flex items-start space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+    <div className={`p-2 rounded-full ${activity.bgColor} flex-shrink-0`}>
+      <activity.icon className={`h-4 w-4 ${activity.color}`} />
+    </div>
+    <div className="flex-1 space-y-1 min-w-0">
+      <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+      <p className="text-xs text-gray-500">{activity.time}</p>
+    </div>
+    <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">{activity.type}</span>
+  </div>
+))
 
-  // 判断当前断点（xs: <600px，sm: 600-900，md: 900-1200，lg: >=1200）
-  const isXs = useMediaQuery(theme.breakpoints.down("sm"));
-  const isSm = useMediaQuery(theme.breakpoints.between("sm", "md"));
-  const isMd = useMediaQuery(theme.breakpoints.between("md", "lg"));
-  const isLg = useMediaQuery(theme.breakpoints.up("lg"));
+const Dashboard = () => {
+  // 使用 useMemo 缓存静态数据
+  const stats = useMemo(
+    () => [
+      {
+        title: "待审批报价",
+        value: "12",
+        change: "+2 from yesterday",
+        icon: FileText,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+      },
+      {
+        title: "活跃订单",
+        value: "45",
+        change: "+7 from last week",
+        icon: Package,
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+      },
+      {
+        title: "本月销售额",
+        value: "$2,350,000",
+        change: "+15% from last month",
+        icon: DollarSign,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+      },
+      {
+        title: "活跃用户",
+        value: "28",
+        change: "+3 from last week",
+        icon: Users,
+        color: "text-orange-600",
+        bgColor: "bg-orange-100",
+      },
+    ],
+    [],
+  )
+
+  const recentActivity = useMemo(
+    () => [
+      {
+        id: 1,
+        type: "approved",
+        message: "Quote Q-2025-008 approved",
+        time: "2 minutes ago",
+        icon: CheckCircle,
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+      },
+      {
+        id: 2,
+        type: "updated",
+        message: "Order SO-250025 status updated",
+        time: "15 minutes ago",
+        icon: Package,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+      },
+      {
+        id: 3,
+        type: "pending",
+        message: "Quote Q-2025-009 awaiting approval",
+        time: "1 hour ago",
+        icon: Clock,
+        color: "text-amber-600",
+        bgColor: "bg-amber-100",
+      },
+      {
+        id: 4,
+        type: "rejected",
+        message: "Quote Q-2025-007 rejected",
+        time: "2 hours ago",
+        icon: AlertTriangle,
+        color: "text-red-600",
+        bgColor: "bg-red-100",
+      },
+    ],
+    [],
+  )
+
+  const quickActions = useMemo(
+    () => [
+      {
+        title: "报价审批",
+        description: "Process pending quote approvals",
+        href: "/approvals",
+        icon: FileText,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+      },
+      {
+        title: "订单管理",
+        description: "View and manage orders",
+        href: "/orders",
+        icon: Package,
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+      },
+      {
+        title: "数据分析",
+        description: "View sales data analysis",
+        href: "/analytics",
+        icon: TrendingUp,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+      },
+    ],
+    [],
+  )
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        overflowY: "auto",
-        bgcolor: theme.palette.background.paper,
-      }}
-    >
-      {/* ====== HEADER ====== */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          px: 2,
-          py: 1,
-        }}
-      >
-        <Header title="Inventory Management Dashboard" subtitle="Overview of your inventory, purchase, and sales data" />
-        <Button
-          sx={{
-            backgroundColor: colors.blueAccent[700],
-            color: colors.grey[100],
-            fontSize: "14px",
-            fontWeight: "bold",
-            px: 2,
-            py: 1,
-            "&:hover": {
-              backgroundColor: colors.blueAccent[600],
-            },
-          }}
-        >
-          <DownloadOutlinedIcon sx={{ mr: 1 }} />
+    <div className="h-full flex flex-col">
+      {/* 优化后的头部 - 减少复杂度 */}
+      <div className="flex-shrink-0 mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">库存管理仪表板</h1>
+          <p className="text-gray-600 mt-1">库存、采购和销售数据概览</p>
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <Download className="h-4 w-4" />
           导出报表
-        </Button>
-      </Box>
+        </button>
+      </div>
 
-      {/* ====== GRID & CHARTS ====== */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          p: 2,
-          display: "grid",
-          gap: 2,
-          gridTemplateColumns: {
-            xs: "repeat(1, 1fr)",
-            sm: "repeat(2, 1fr)",
-            md: "repeat(3, 1fr)",
-            lg: "repeat(4, 1fr)",
-          },
-          gridAutoRows: "minmax(140px, auto)",
-        }}
-      >
-        {/* === 行 1：4 个 KPI 卡片 === */}
-        <Paper
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 1" },
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title={`$${totalInventoryValue}`}
-            subtitle="总库存价值"
-            progress={inventoryUsageRate}
-            increase={`${((inventoryUsageRate - lastInventoryUsageRate) * 100).toFixed(1)}%`}
-            icon={
-              <InventoryIcon
-                sx={{ color: colors.greenAccent[600], fontSize: isXs ? 24 : 32 }}
-              />
-            }
-          />
-        </Paper>
+      {/* 简化的统计卡片网格 */}
+      <div className="flex-shrink-0 grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        {stats.map((stat, index) => (
+          <StatCard key={index} {...stat} />
+        ))}
+      </div>
 
-        <Paper
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 1" },
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title={`${monthlySalesOrders}`}
-            subtitle="本月销售订单数"
-            progress={salesOrderCompletionRate}
-            increase={`${((salesOrderCompletionRate - lastSalesOrderRate) * 100).toFixed(1)}%`}
-            icon={
-              <ShoppingCartIcon
-                sx={{ color: colors.greenAccent[600], fontSize: isXs ? 24 : 32 }}
-              />
-            }
-          />
-        </Paper>
+      {/* 简化的主要内容区域 */}
+      <div className="flex-1 grid gap-6 lg:grid-cols-7 min-h-0">
+        {/* 最近活动 */}
+        <div className="lg:col-span-4 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col">
+          <div className="p-6 border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  最近活动
+                </h2>
+                <p className="text-gray-600 text-sm">最新的系统操作和更新</p>
+              </div>
+              <Link to="/activity" className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
+                查看全部
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
 
-        <Paper
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 1" },
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title={`${lowStockSKUCount}`}
-            subtitle="待补货 SKU"
-            progress={lowStockSKUCount / 100}
-            increase={`${(((lowStockSKUCount - lastPeriodLowStockSKUCount) / lastPeriodLowStockSKUCount) * 100).toFixed(1)}%`}
-            icon={
-              <WarningIcon
-                sx={{ color: colors.greenAccent[600], fontSize: isXs ? 24 : 32 }}
-              />
-            }
-          />
-        </Paper>
+          <div className="flex-1 p-6 space-y-4 overflow-auto">
+            {recentActivity.map((activity) => (
+              <ActivityItem key={activity.id} activity={activity} />
+            ))}
+          </div>
+        </div>
 
-        <Paper
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 1" },
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <StatBox
-            title={`$${weeklyProcurementCost}`}
-            subtitle="本周采购支出"
-            progress={weeklyProcurementCost / goalProcurement}
-            increase={`${(((weeklyProcurementCost - lastWeekProcurementCost) / lastWeekProcurementCost) * 100).toFixed(1)}%`}
-            icon={
-              <LocalShippingIcon
-                sx={{ color: colors.greenAccent[600], fontSize: isXs ? 24 : 32 }}
-              />
-            }
-          />
-        </Paper>
+        {/* 快速操作 */}
+        <div className="lg:col-span-3 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col">
+          <div className="p-6 border-b border-gray-200 flex-shrink-0">
+            <h2 className="text-lg font-semibold text-gray-900">快速操作</h2>
+            <p className="text-gray-600 text-sm">常用功能快速访问</p>
+          </div>
 
-        {/* === 行 2：库存周走势（占 3 列）  + 销售类别分布（占 1 列） === */}
-        <Paper
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 2", md: "span 2", lg: "span 3" },
-            gridRow: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 2" },
-           bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Typography
-            variant={isXs ? "h6" : "h5"}
-            fontWeight="600"
-            color={colors.grey[100]}
-            sx={{ p: 1 }}
-          >
-            库存周走势
-          </Typography>
-          <Paper sx={{ flexGrow: 1, p: 1 }}>
-            <LineChart data={inventoryTrend} isDashboard={true} />
-          </Paper>
-        </Paper>
-
-        <Box
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 2", md: "span 1", lg: "span 1" },
-            gridRow: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 2" },
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Typography
-            variant={isXs ? "h6" : "h5"}
-            fontWeight="600"
-            color={colors.grey[100]}
-            sx={{ p: 1 }}
-          >
-            销售类别分布
-          </Typography>
-          <Box sx={{ flexGrow: 1, p: 1 }}>
-            <PieChart data={salesByCategory} isDashboard={true} />
-          </Box>
-        </Box>
-
-        {/* === 行 3：最新订单（占1-2列）+ 热销/滞销SKU（占1列）+ 采购 vs 销售（占1列） === */}
-        <Box
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 2", md: "span 1", lg: "span 1" },
-            gridRow: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 2" },
-           bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            flexDirection: "column",
-            overflowY: "auto",
-          }}
-        >
-          <Typography
-            color={colors.grey[100]}
-            variant={isXs ? "h6" : "h5"}
-            sx={{ p: 1 }}
-          >
-            最新订单
-          </Typography>
-          {recentOrders.map((order) => (
-            <Box
-              key={order.id}
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: `1px solid ${colors.primary[500]}`,
-                px: 1,
-                py: 1,
-              }}
-            >
-              <Box>
-                <Typography variant="subtitle1" color={colors.greenAccent[400]}>
-                  {order.id}
-                </Typography>
-                <Typography color={colors.grey[100]} variant="body2">
-                  {order.partner}
-                </Typography>
-              </Box>
-              <Typography color={colors.grey[100]} variant="body2">
-                {order.date}
-              </Typography>
-              <Box
-                sx={{
-                  backgroundColor:
-                    order.type === "sale"
-                      ? colors.greenAccent[600]
-                      : colors.blueAccent[600],
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: 0.5,
-                }}
+          <div className="flex-1 p-6 space-y-3">
+            {quickActions.map((action, index) => (
+              <Link
+                key={index}
+                to={action.href}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all group"
               >
-                <Typography variant="caption" color={colors.grey[100]}>
-                  {order.type === "sale" ? "销售" : "采购"}
-                </Typography>
-              </Box>
-              <Typography color={colors.grey[100]} variant="body2">
-                ${order.amount}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+                <div className={`p-2 rounded-lg ${action.bgColor} mr-3 flex-shrink-0`}>
+                  <action.icon className={`h-5 w-5 ${action.color}`} />
+                </div>
+                <div className="text-left flex-1 min-w-0">
+                  <div className="font-medium text-gray-900">{action.title}</div>
+                  <div className="text-sm text-gray-600 truncate">{action.description}</div>
+                </div>
+                <ArrowUpRight className="h-4 w-4 ml-auto text-gray-400 group-hover:text-gray-600 flex-shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-        <Box
-          sx={{
-            gridColumn: { xs: "span 1", sm: "span 2", md: "span 1", lg: "span 1" },
-            gridRow: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 2" },
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Typography
-            variant={isXs ? "h6" : "h5"}
-            fontWeight="600"
-            color={colors.grey[100]}
-            sx={{ p: 1 }}
-          >
-            热销 / 滞销 SKU
-          </Typography>
-          <Box sx={{ flexGrow: 1, p: 1 }}>
-            <BarChart data={topSellingSKUs} isDashboard={true} />
-          </Box>
-        </Box>
-
-        <Paper
-          sx={{
-             gridColumn: { xs: "span 1", sm: "span 2", md: "span 2", lg: "span 2" },
-            gridRow: { xs: "span 1", sm: "span 1", md: "span 1", lg: "span 2" },
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Typography
-            variant={isXs ? "h6" : "h5"}
-            fontWeight="600"
-            color={colors.grey[100]}
-            sx={{ p: 1 }}
-          >
-            采购 vs 销售
-          </Typography>
-          <Box sx={{ flexGrow: 1, p: 1 }}>
-            <LineChart data={procurementVsSales} isDashboard={true}  axisBottom={null}/>
-          </Box>
-        </Paper>
-      </Box>
-    </Box>
-  );
-};
-
-export default Dashboard;
+export default Dashboard

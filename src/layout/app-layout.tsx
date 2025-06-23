@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils"
 import { useSidebar } from "./sidebar-provider"
 import { Header } from "./header"
 import { Sidebar } from "./sidebar"
-
+import { Outlet } from "react-router-dom"
 interface AppLayoutProps {
-  children: React.ReactNode
+  children?: React.ReactNode
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -30,9 +30,9 @@ export function AppLayout({ children }: AppLayoutProps) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-hidden bg-gray-50">
-          <div className="h-full overflow-auto">
-            <div className="p-6 h-full">{children}</div>
+        <main className="flex flex-1 overflow-hidden  bg-gray-50">
+          <div className="h-full overflow-auto w-full">
+            <div className="p-6 h-full"><Outlet/></div>
           </div>
         </main>
       </div>

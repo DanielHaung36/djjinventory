@@ -7,7 +7,7 @@ import RegisterPage from "../features/auth/RegisterPage";
 import PasswordResetPage from "../features/auth/PasswordResetPage";
 import RegistrationCompletePage from "../features/auth/RegistrationCompletePage";
 
-import MainLayout from "../layouts/MainLayout";
+import { AppLayout } from "../layout/app-layout";
 import Dashboard from "../features/dashboard/Dashboard";
 import SalesOverviewPage from "../features/sales/OverviewPage";
 import InventoryOverviewPage from "../features/inventory/InventoryOverviewPage";
@@ -15,8 +15,12 @@ import ProductDetailPage from "../features/products/ProductDetails";
 import ProductDictionaryPage from "../features/products/ProductDictionaryPage";
 import ProductEditPage from "../features/products/ProductEditPage";
 import PurchasePage from "../features/procure/Purchase";
-import ProcurementPage from "../features/procure/ProcurementPage";
-import ProcureDashboardPage from "../features/procure/DashboardOverview";
+import { ProcurementManagement } from "../features/procure/procurement-management";
+import { ProductLaunchManagement } from "../features/procure/product-launch-management";
+import { DashboardOverview } from "../features/procure/DashboardOverview";
+import { AdminApprovals } from "../components/admin-approvals";
+import { AdminProductReview } from "../features/procure/admin-product-review";
+import ProductLaunchForm from "../features/procure/Productlaunchform";
 import InboundPage from "../features/inventory/components/InventoryInboundPage";
 import QuoteApprovalsPage from "../features/quotes/approvals";
 import QuotesPage from "../features/quotes/page";
@@ -30,10 +34,12 @@ import NewOutboundPage from "../features/inventory/pages/components/outbound/new
 import NewSalesOrderForm from "../features/sales/NewSaleOrder";
 import SalesOrderDetail from "../features/sales/SalesDetails";
 import AdminSalesOrdersPage from "../features/sales/AdminSalesOrder";
-import FAQ from "../features/faq/Faq";
+import FAQPage from "../features/faq/page";
+import KnowledgeBasePage from "../features/knowledge/page";
 import UserPermissionEditor from "../features/setting/Rbac";
 import Team from "../features/user";
 import Form from "../features/user/components/Form";
+
 
 export default function AppRoutes() {
   return (
@@ -51,7 +57,7 @@ export default function AppRoutes() {
         </Route>
 
         {/* ====== 主应用模块（带侧边栏/TopBar） ====== */}
-        <Route element={<MainLayout />}>
+        <Route element={<AppLayout />}>
           {/* 默认重定向 */}
           <Route index element={<Navigate to="dashboard" replace />} />
 
@@ -70,8 +76,15 @@ export default function AppRoutes() {
 
 
           <Route path="procure">
-            <Route index element={< ProcureDashboardPage/>}></Route>
+            <Route index element={< DashboardOverview/>}></Route>
+            <Route path="/procure/dashboard" element={< DashboardOverview/>} />
             <Route path="/procure/newpurchase" element={< PurchasePage/>} />
+            <Route path="/procure/procurement" element={< ProcurementManagement/>} />
+            <Route path="/procure/products" element={< ProductLaunchManagement/>} />
+            <Route path="/procure/products/new" element={< ProductLaunchForm/>} />
+            <Route path="/procure/admin" element={< AdminApprovals/>} />
+            <Route path="/procure/admin/products" element={< AdminProductReview/>} />
+            {/* <Route path="/procure/newpurchase" element={< PurchasePage/>} /> */}
           </Route>
 
           <Route path="/sales/overview" element={<SalesOverviewPage />} />
@@ -94,7 +107,8 @@ export default function AppRoutes() {
           <Route path="/team" element={<Team />} />
           <Route path="/team/create" element={<Form />} />
           <Route path="/team/edit" element={<Form />} />
-          <Route path="/faq" element={<FAQ />}></Route>
+          <Route path="/faq" element={<FAQPage />}></Route>
+          <Route path="/knowledge" element={<KnowledgeBasePage />}></Route>
           <Route
             path="/settings/global"
             element={<UserPermissionEditor />}

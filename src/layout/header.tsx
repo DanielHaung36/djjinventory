@@ -26,7 +26,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
-      <div className="flex h-16 items-center justify-between px-6">
+      <div className="flex h-16 items-center space-between px-6">
         {/* Left Section - Mobile Menu + Logo */}
         <div className="flex items-center gap-4">
           {/* Mobile Menu */}
@@ -61,10 +61,15 @@ export function Header() {
             </div>
           )}
         </div>
+          <div className="flex-shrink-0">
+               <img src="../../assets/logo.png" alt="Logo" className="h-10 w-auto ml-10" />
+        </div>
 
         {/* Center Section - Search */}
-        <div className="flex-1 max-w-md mx-8">
+        {/* <div className="flex-1 max-w-md mx-8">
+          
           <div className="relative group">
+
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
             <Input
               placeholder={t("common.search")}
@@ -76,10 +81,10 @@ export function Header() {
               </kbd>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Right Section - Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-1 justify-end gap-2">
           {/* Language Selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
