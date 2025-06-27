@@ -99,12 +99,12 @@ export function Sidebar() {
               icon: Eye,
               href: "/sales/overview",
             },
-            // {
-            //   key: "sales-details",
-            //   label: "Details",
-            //   icon: FileText,
-            //   href: "/sales/details",
-            // },
+            {
+              key: "sales-details",
+              label: "Details",
+              icon: FileText,
+              href: "/sales/details",
+            },
             {
               key: "sales-admin",
               label: "Manage",
@@ -161,11 +161,11 @@ export function Sidebar() {
               icon: Grid3X3,
               href: "/procure/dashboard",
             },
-            {
-              key: "procurement",
-              label: "Procurement",
-              icon: ShoppingCart,
-              href: "/procure/procurement",
+                   {
+              key: "products-new",
+              label: "New Product",
+              icon: Plus,
+              href: "/procure/products/new",
             },
             {
               key: "procure-products",
@@ -174,22 +174,23 @@ export function Sidebar() {
               href: "/procure/products",
             },
             {
-              key: "products-new",
-              label: "New Product",
-              icon: Plus,
-              href: "/procure/products/new",
+              key: "procurement",
+              label: "Procurement",
+              icon: ShoppingCart,
+              href: "/procure/procurement",
             },
-            {
-              key: "procure-admin",
-              label: "Admin Approvals",
-              icon: CheckCircle,
-              href: "/procure/admin",
-            },
+     
             {
               key: "procure-review",
               label: "Product Reviews",
               icon: Star,
               href: "/procure/admin/products",
+            },
+                    {
+              key: "procure-admin",
+              label: "Admin Approvals",
+              icon: CheckCircle,
+              href: "/procure/admin",
             },
           ],
         },

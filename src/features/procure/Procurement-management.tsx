@@ -79,12 +79,12 @@ const initialFormData: Omit<ProcurementRequest, "id" | "createdDate" | "updatedD
   unitPrice: 0,
   quantity: 1,
   totalAmount: 0,
-  status: "pending",
+  status: "pending", // Always start as pending
   priority: "medium",
   deliveryDate: "",
   warehouse: "",
   remark: "",
-  requestedBy: "Current User", // In real app, get from auth context
+  requestedBy: "Current User",
   department: "Procurement",
 }
 
@@ -161,6 +161,9 @@ export function ProcurementManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [filterPriority, setFilterPriority] = useState<string>("all")
+
+  // Add user role state after existing states
+  const [userRole, setUserRole] = useState<"requester" | "approver" | "admin">("requester") // In real app, get from auth context
 
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -615,25 +618,42 @@ export function ProcurementManagement() {
 
       <Separator />
 
-      {/* Status & Logistics */}
+      {/* Status & Logistics - Role-based rendering */}
       <div className="space-y-4">
         <h4 className="font-medium text-sm text-muted-foreground">Status & Logistics</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select value={formData.status} onValueChange={(value: any) => updateFormData("status", value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="in-stock">In Stock</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Status - Only show for approvers/admins, or as read-only for requesters */}
+          {userRole === "requester" ? (
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <div className="flex items-center space-x-2">
+                <Badge className={getStatusColor(formData.status)}>{formData.status}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  {isEdit ? "Status can only be changed by approvers" : "New requests start as pending"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status} onValueChange={(value: any) => updateFormData("status", value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  {userRole === "admin" && (
+                    <>
+                      <SelectItem value="in-stock">In Stock</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="priority">Priority</Label>
@@ -698,49 +718,196 @@ export function ProcurementManagement() {
     </div>
   )
 
+  // Add these functions after existing handlers
+  const handleQuickApprove = async (requestId: string) => {
+    const request = requests.find((r) => r.id === requestId)
+    if (!request) return
+
+    setIsSubmitting(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const updatedRequest = {
+        ...request,
+        status: "approved" as const,
+        approvedBy: "Current User", // In real app, get from auth
+        approvalDate: new Date().toISOString().split("T")[0],
+        updatedDate: new Date().toISOString().split("T")[0],
+      }
+
+      setRequests((prev) => prev.map((r) => (r.id === requestId ? updatedRequest : r)))
+
+      toast({
+        title: "Request Approved",
+        description: `Request ${request.contractNumber} has been approved.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Approval Failed",
+        description: "There was an error approving the request.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleQuickReject = async (requestId: string) => {
+    const request = requests.find((r) => r.id === requestId)
+    if (!request) return
+
+    setIsSubmitting(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const updatedRequest = {
+        ...request,
+        status: "rejected" as const,
+        approvedBy: "Current User",
+        approvalDate: new Date().toISOString().split("T")[0],
+        updatedDate: new Date().toISOString().split("T")[0],
+      }
+
+      setRequests((prev) => prev.map((r) => (r.id === requestId ? updatedRequest : r)))
+
+      toast({
+        title: "Request Rejected",
+        description: `Request ${request.contractNumber} has been rejected.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Rejection Failed",
+        description: "There was an error rejecting the request.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleMarkInStock = async (requestId: string) => {
+    const request = requests.find((r) => r.id === requestId)
+    if (!request) return
+
+    setIsSubmitting(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const updatedRequest = {
+        ...request,
+        status: "in-stock" as const,
+        updatedDate: new Date().toISOString().split("T")[0],
+      }
+
+      setRequests((prev) => prev.map((r) => (r.id === requestId ? updatedRequest : r)))
+
+      toast({
+        title: "Marked as In Stock",
+        description: `Request ${request.contractNumber} is now in stock.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "There was an error updating the request status.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleMarkDelivered = async (requestId: string) => {
+    const request = requests.find((r) => r.id === requestId)
+    if (!request) return
+
+    setIsSubmitting(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const updatedRequest = {
+        ...request,
+        status: "delivered" as const,
+        updatedDate: new Date().toISOString().split("T")[0],
+      }
+
+      setRequests((prev) => prev.map((r) => (r.id === requestId ? updatedRequest : r)))
+
+      toast({
+        title: "Marked as Delivered",
+        description: `Request ${request.contractNumber} has been delivered successfully.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "There was an error updating the request status.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Procurement Management</h1>
-          <p className="text-muted-foreground text-sm">Manage procurement requests and workflows</p>
+          <p className="text-muted-foreground text-sm">
+            {userRole === "requester" && "Submit and track your procurement requests"}
+            {userRole === "approver" && "Review and approve procurement requests"}
+            {userRole === "admin" && "Manage all procurement requests and workflows"}
+          </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Request
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh]">
-            <DialogHeader>
-              <DialogTitle>Create New Procurement Request</DialogTitle>
-              <DialogDescription>Fill in the details for your new procurement request</DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[70vh] pr-4">
-              <ProcurementForm />
-            </ScrollArea>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
+        <div className="flex items-center gap-3">
+          {/* Role Switcher for Demo */}
+          <Select value={userRole} onValueChange={(value: any) => setUserRole(value)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="requester">Requester</SelectItem>
+              <SelectItem value="approver">Approver</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                {userRole === "requester" ? "New Request" : "Create Request"}
               </Button>
-              <Button onClick={handleCreate} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Create Request
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh]">
+              <DialogHeader>
+                <DialogTitle>Create New Procurement Request</DialogTitle>
+                <DialogDescription>Fill in the details for your new procurement request</DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[70vh] pr-4">
+                <ProcurementForm />
+              </ScrollArea>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreate} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Create Request
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -852,45 +1019,107 @@ export function ProcurementManagement() {
                   <span className="font-medium">
                     {request.status === "delivered"
                       ? "100%"
-                      : request.status === "approved"
+                      : request.status === "in-stock"
                         ? "75%"
-                        : request.status === "pending"
-                          ? "25%"
-                          : "0%"}
+                        : request.status === "approved"
+                          ? "50%"
+                          : request.status === "pending"
+                            ? "25%"
+                            : "0%"}
                   </span>
                 </div>
                 <Progress
                   value={
                     request.status === "delivered"
                       ? 100
-                      : request.status === "approved"
+                      : request.status === "in-stock"
                         ? 75
-                        : request.status === "pending"
-                          ? 25
-                          : 0
+                        : request.status === "approved"
+                          ? 50
+                          : request.status === "pending"
+                            ? 25
+                            : 0
                   }
                   className="h-1.5"
                 />
               </div>
 
-              {/* Actions */}
+              {/* Actions - Role-based */}
               <div className="flex justify-between pt-2">
                 <div className="flex space-x-1">
                   <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => openViewDialog(request)}>
                     <Eye className="h-3 w-3" />
                   </Button>
-                  <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => openEditDialog(request)}>
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => openDeleteDialog(request)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+
+                  {/* Edit - Only for requesters on their own pending requests, or approvers/admins */}
+                  {((userRole === "requester" &&
+                    request.status === "pending" &&
+                    request.requestedBy === "Current User") ||
+                    userRole === "approver" ||
+                    userRole === "admin") && (
+                    <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => openEditDialog(request)}>
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                  )}
+
+                  {/* Delete - Only for requesters on their own pending requests, or admins */}
+                  {((userRole === "requester" &&
+                    request.status === "pending" &&
+                    request.requestedBy === "Current User") ||
+                    userRole === "admin") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => openDeleteDialog(request)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
+
+                {/* Quick Actions for Different Roles and Status */}
+                {userRole === "approver" && request.status === "pending" && (
+                  <div className="flex space-x-1">
+                    <Button size="sm" className="h-7 px-2 text-xs" onClick={() => handleQuickApprove(request.id)}>
+                      Approve
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => handleQuickReject(request.id)}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                )}
+
+                {/* Warehouse Actions for Approved Items */}
+                {(userRole === "admin" || userRole === "approver") && request.status === "approved" && (
+                  <div className="flex space-x-1">
+                    <Button
+                      size="sm"
+                      className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                      onClick={() => handleMarkInStock(request.id)}
+                    >
+                      Mark In Stock
+                    </Button>
+                  </div>
+                )}
+
+                {/* Delivery Actions for In-Stock Items */}
+                {(userRole === "admin" || userRole === "approver") && request.status === "in-stock" && (
+                  <div className="flex space-x-1">
+                    <Button
+                      size="sm"
+                      className="h-7 px-2 text-xs bg-purple-600 hover:bg-purple-700"
+                      onClick={() => handleMarkDelivered(request.id)}
+                    >
+                      Mark Delivered
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

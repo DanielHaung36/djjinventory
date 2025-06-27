@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { useNavigate } from "react-router-dom"
 import {
   ShoppingCart,
   Package,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react"
 
 export function DashboardOverview() {
+  const navigate = useNavigate()
   const stats = [
     {
       title: "Active Procurement",
@@ -90,7 +92,7 @@ export function DashboardOverview() {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm">Overview of your procurement and product launch activities</p>
         </div>
-        <Button>
+        <Button onClick={()=>{navigate("/procure/reports")}}>
           <TrendingUp className="mr-2 h-4 w-4" />
           View Reports
         </Button>
@@ -205,7 +207,7 @@ export function DashboardOverview() {
               <Package className="h-5 w-5" />
               <span className="text-xs">Product Launch</span>
             </Button>
-            <Button variant="outline" className="h-auto p-4 flex-col space-y-2">
+            <Button variant="outline" onClick={()=>{navigate("/procure/reports")}} className="h-auto p-4 flex-col space-y-2">
               <TrendingUp className="h-5 w-5" />
               <span className="text-xs">View Reports</span>
             </Button>

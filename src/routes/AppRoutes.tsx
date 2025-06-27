@@ -7,6 +7,7 @@ import RegisterPage from "../features/auth/RegisterPage";
 import PasswordResetPage from "../features/auth/PasswordResetPage";
 import RegistrationCompletePage from "../features/auth/RegistrationCompletePage";
 
+import { InvoicePDFGenerator } from "../features/sales/InviocePDF";
 import { AppLayout } from "../layout/app-layout";
 import Dashboard from "../features/dashboard/Dashboard";
 import SalesOverviewPage from "../features/sales/OverviewPage";
@@ -15,8 +16,9 @@ import ProductDetailPage from "../features/products/ProductDetails";
 import ProductDictionaryPage from "../features/products/ProductDictionaryPage";
 import ProductEditPage from "../features/products/ProductEditPage";
 import PurchasePage from "../features/procure/Purchase";
-import { ProcurementManagement } from "../features/procure/procurement-management";
-import { ProductLaunchManagement } from "../features/procure/product-launch-management";
+import { ProcurementManagement } from "../features/procure/Procurement-management"; 
+import { ProductLaunchManagement } from "../features/procure/Product-launch-management"; 
+import { ReportsOverview } from "../features/procure/Reports";
 import { DashboardOverview } from "../features/procure/DashboardOverview";
 import { AdminApprovals } from "../components/admin-approvals";
 import { AdminProductReview } from "../features/procure/admin-product-review";
@@ -82,6 +84,7 @@ export default function AppRoutes() {
             <Route path="/procure/procurement" element={< ProcurementManagement/>} />
             <Route path="/procure/products" element={< ProductLaunchManagement/>} />
             <Route path="/procure/products/new" element={< ProductLaunchForm/>} />
+            <Route path="/procure/reports" element={< ReportsOverview/>} />
             <Route path="/procure/admin" element={< AdminApprovals/>} />
             <Route path="/procure/admin/products" element={< AdminProductReview/>} />
             {/* <Route path="/procure/newpurchase" element={< PurchasePage/>} /> */}
@@ -90,6 +93,7 @@ export default function AppRoutes() {
           <Route path="/sales/overview" element={<SalesOverviewPage />} />
           <Route path="/sales/new" element={<NewSalesOrderForm />} />
           <Route path="/sales/:id" element={<SalesOrderDetail />} />
+          <Route path="/sales/details" element={<InvoicePDFGenerator />} />
           <Route path="/sales/admin" element={<AdminSalesOrdersPage />} />
 
           {/* 二级路由组：inventory/* */}
