@@ -1,247 +1,453 @@
 "use client"
 
-import { useState, useEffect,useMemo } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useState, useMemo, useEffect } from "react"
+import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { createQuote, getQuoteById, calculateQuoteTotals } from "@/lib/services/quote-service"
-import type { Quote, QuoteItem } from "@/lib/types/quote"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Plus, Trash2, User, Building, Package, Calendar, Loader2 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { FileUploader } from "./file-uploader"
 import { useToast } from "@/hooks/use-toast"
+import { Plus, Trash2, User, Package, CreditCard, Loader2, Building2, Phone, Mail, MapPin, Search } from "lucide-react"
 
+// Form validation schema
 const formSchema = z.object({
-  quoteNumber: z.string().min(1, "Quote number is required"),
-  customer: z.string().min(1, "Customer name is required"),
-  customerABN: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
-  quoteDate: z.string().min(1, "Quote date is required"),
-  salesRep: z.string().optional(),
-  store: z.string().optional(),
-  warehouse: z.string().optional(),
-  currency: z.enum(["AUD", "USD", "CNY"]),
-  companyName: z.string().min(1, "Company name is required"),
-  companyABN: z.string().optional(),
-  remarks: z.string().optional(),
-  warrantyRemarks: z.string().optional(),
-})
+  customer: z.object({
+    id:      z.number().optional(),
+    name:    z.string().min(1, "Customer name is required"),
+    abn:     z.string().optional(),
+    contact: z.string().min(1, "Contact person is required"),
+    phone:   z.string().min(1, "Phone number is required"),
+    email:   z.string().email("Invalid email address"),
+    address: z.string().min(1, "Delivery address is required"),
+  }),
+  items: z.array(
+    z.object({
+      productId:        z.number().optional(),
+      description:      z.string().min(1, "Description is required"),
+      detailDescription:z.string().optional(),
+      unit:             z.string().min(1, "Unit is required"),
+      quantity:         z.number().min(1, "Quantity must be at least 1"),
+      unitPrice:        z.number().min(0, "Unit price must be non-negative"),
+      discount:         z.number().min(0, "Discount must be non-negative").default(0),
+      goodsNature:      z.enum(["contract","warranty","gift","selfPurchase","pending"]),
+    })
+  ).min(1, "At least one item is required"),
 
-export default function NewQuotePage() {
-  const router = useNavigate()
-  const { search, pathname } = useLocation()
-   // 读取查询参数
-  const searchParams = useMemo(() => new URLSearchParams(search), [search])
-  const copyFromId = searchParams.get("copy")
+  depositAmount:       z.number().min(0, "Deposit amount must be non-negative"),
+  // 改成复数，并且只要 url
+  depositAttachments:  z.array(z.object({ url: z.string().url() })).optional(),
+
+  remarks:      z.string().optional(),
+  warrantyNotes:z.string().optional(),
+});
+type FormData = z.infer<typeof formSchema>
+
+// 模拟客户数据
+const existingCustomers = [
+  {
+    id: 123,
+    name: "ACME Pty Ltd",
+    abn: "12 345 678 901",
+    contact: "Alice Lee",
+    phone: "0412 345 678",
+    email: "alice@example.com",
+    address: "8 Kimberley St, Wyndham WA 6740",
+  },
+  {
+    id: 124,
+    name: "Tech Solutions Inc",
+    abn: "98 765 432 109",
+    contact: "Bob Smith",
+    phone: "0423 456 789",
+    email: "bob@techsolutions.com",
+    address: "15 Innovation Drive, Perth WA 6000",
+  },
+  {
+    id: 125,
+    name: "Mining Corp Australia",
+    abn: "11 222 333 444",
+    contact: "Carol Johnson",
+    phone: "0434 567 890",
+    email: "carol@miningcorp.com.au",
+    address: "45 Industrial Road, Kalgoorlie WA 6430",
+  },
+  {
+    id: 126,
+    name: "Construction Plus",
+    abn: "55 666 777 888",
+    contact: "David Wilson",
+    phone: "0445 678 901",
+    email: "david@constructionplus.com.au",
+    address: "78 Builder Street, Bunbury WA 6230",
+  },
+  {
+    id: 127,
+    name: "Heavy Machinery Co",
+    abn: "99 111 222 333",
+    contact: "Emma Brown",
+    phone: "0456 789 012",
+    email: "emma@heavymachinery.com.au",
+    address: "23 Equipment Avenue, Geraldton WA 6530",
+  },
+]
+
+// Mock products data
+const availableProducts = [
+  { id: 42, name: "LGMA Wheel Loader – LM930", price: 24990 },
+  { id: 43, name: "Excavator CAT 320", price: 45000 },
+  { id: 44, name: "Bulldozer D6T", price: 78000 },
+  { id: 45, name: "Crane Liebherr LTM 1050", price: 125000 },
+  { id: 46, name: "Dump Truck Volvo A40G", price: 89000 },
+]
+
+// 客户搜索组件
+function CustomerSelector({
+  value,
+  onValueChange,
+  disabled,
+}: {
+  value?: number
+  onValueChange: (typeof existingCustomers)[0] | null
+  disabled?: boolean
+}) {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
+
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm) return existingCustomers
+    return existingCustomers.filter(
+      (customer) =>
+        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.abn.includes(searchTerm),
+    )
+  }, [searchTerm])
+
+  const selectedCustomer = existingCustomers.find((customer) => customer.id === value)
+
+  // 当选择客户时更新搜索框显示
+  useEffect(() => {
+    if (selectedCustomer) {
+      setSearchTerm(selectedCustomer.name)
+    }
+  }, [selectedCustomer])
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search customers by name, contact, or ABN..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          className="pl-10"
+          disabled={disabled}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="relative">
+          <div className="absolute top-0 left-0 right-0 z-50 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="p-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start text-left h-auto p-2"
+                onClick={() => {
+                  onValueChange(null)
+                  setSearchTerm("")
+                  setIsOpen(false)
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                <div>
+                  <div className="font-medium">Create New Customer</div>
+                  <div className="text-sm text-gray-500">Add a new customer to the system</div>
+                </div>
+              </Button>
+            </div>
+            <div className="border-t">
+              {filteredCustomers.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">No customers found</div>
+              ) : (
+                filteredCustomers.map((customer) => (
+                  <Button
+                    key={customer.id}
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start text-left h-auto p-3 border-b last:border-b-0"
+                    onClick={() => {
+                      onValueChange(customer)
+                      setSearchTerm(customer.name)
+                      setIsOpen(false)
+                    }}
+                  >
+                    <div className="w-full">
+                      <div className="font-medium">{customer.name}</div>
+                      <div className="text-sm text-gray-500">
+                        {customer.contact} • {customer.abn}
+                      </div>
+                    </div>
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedCustomer && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="font-medium text-blue-900">{selectedCustomer.name}</div>
+          <div className="text-sm text-blue-700">
+            {selectedCustomer.contact} • {selectedCustomer.phone} • {selectedCustomer.email}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 产品搜索组件
+function ProductSelector({
+  value,
+  onValueChange,
+  disabled,
+}: {
+  value?: number
+  onValueChange: (typeof availableProducts)[0] | null
+  disabled?: boolean
+}) {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
+
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return availableProducts
+    return availableProducts.filter((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  }, [searchTerm])
+
+  const selectedProduct = availableProducts.find((product) => product.id === value)
+
+  useEffect(() => {
+    if (selectedProduct) {
+      setSearchTerm(selectedProduct.name)
+    } else {
+      setSearchTerm("")
+    }
+  }, [selectedProduct])
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
+    }).format(amount)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search products or enter custom description..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          className="pl-10 h-9"
+          disabled={disabled}
+        />
+      </div>
+
+      {isOpen && (
+        <div className="relative">
+          <div className="absolute top-0 left-0 right-0 z-50 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="p-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start text-left h-auto p-2"
+                onClick={() => {
+                  onValueChange(null)
+                  setSearchTerm("")
+                  setIsOpen(false)
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                <div>
+                  <div className="font-medium">Custom Description</div>
+                  <div className="text-sm text-gray-500">Enter your own product description</div>
+                </div>
+              </Button>
+            </div>
+            <div className="border-t">
+              {filteredProducts.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">No products found</div>
+              ) : (
+                filteredProducts.map((product) => (
+                  <Button
+                    key={product.id}
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start text-left h-auto p-3 border-b last:border-b-0"
+                    onClick={() => {
+                      onValueChange(product)
+                      setSearchTerm(product.name)
+                      setIsOpen(false)
+                    }}
+                  >
+                    <div className="w-full">
+                      <div className="font-medium">{product.name}</div>
+                      <div className="text-sm text-gray-500">{formatCurrency(product.price)}</div>
+                    </div>
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedProduct && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+          <div className="font-medium text-green-900">{selectedProduct.name}</div>
+          <div className="text-sm text-green-700">{formatCurrency(selectedProduct.price)}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function QuoteSubmissionForm() {
   const { toast } = useToast()
-
-  const [items, setItems] = useState<QuoteItem[]>([])
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [isCopying, setIsCopying] = useState(false)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>()
+  const [selectedProductIds, setSelectedProductIds] = useState<{ [key: number]: number | undefined }>({})
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      quoteNumber: `QT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, "0")}`,
-      customer: "",
-      customerABN: "",
-      phone: "",
-      email: "",
-      quoteDate: new Date().toISOString().split("T")[0],
-      salesRep: "",
-      store: "",
-      warehouse: "",
-      currency: "AUD",
-      companyName: "Heavy Equipment Australia Pty Ltd",
-      companyABN: "98 765 432 109",
+      customer: {
+        name: "",
+        abn: "",
+        contact: "",
+        phone: "",
+        email: "",
+        address: "",
+      },
+      items: [
+        {
+          description: "",
+          detailDescription: "",
+          unit: "ea",
+          quantity: 1,
+          unitPrice: 0,
+          discount: 0,
+          goodsNature: "contract",
+        },
+      ],
+      depositAmount: 0,
+      depositAttachment: [],
       remarks: "",
-      warrantyRemarks: "",
+      warrantyNotes: "",
     },
   })
 
-  // Handle copying from an existing quote
-  useEffect(() => {
-    const copyQuote = async () => {
-      if (!copyFromId) return
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  })
 
-      try {
-        setIsCopying(true)
-        setLoading(true)
-
-        toast({
-          title: "Copying quote",
-          description: "Loading quote data for duplication...",
-        })
-
-        const sourceQuote = await getQuoteById(copyFromId)
-
-        if (sourceQuote) {
-          // Format date for input field
-          const formattedDate = new Date().toISOString().split("T")[0]
-
-          // Generate a new quote number for the copy
-          const newQuoteNumber = `COPY-${sourceQuote.quoteNumber}`
-
-          // Set form values from source quote
-          form.reset({
-            quoteNumber: newQuoteNumber,
-            customer: sourceQuote.customer,
-            customerABN: sourceQuote.customerABN || "",
-            phone: sourceQuote.phone || "",
-            email: sourceQuote.email || "",
-            quoteDate: formattedDate,
-            salesRep: sourceQuote.salesRep || "",
-            store: sourceQuote.store || "",
-            warehouse: sourceQuote.warehouse || "",
-            currency: sourceQuote.amounts.currency,
-            companyName: sourceQuote.company.name,
-            companyABN: sourceQuote.company.abn || "",
-            remarks: sourceQuote.remarks?.[0]?.general || "",
-            warrantyRemarks: sourceQuote.remarks?.[0]?.warrantyAndSpecial || "",
-          })
-
-          // Copy items
-          if (sourceQuote.items && sourceQuote.items.length > 0) {
-            setItems([...sourceQuote.items])
-          }
-
-          toast({
-            title: "Quote duplicated",
-            description: "Quote data has been loaded. You can now edit and save the new quote.",
-          })
-        } else {
-          toast({
-            title: "Error",
-            description: "Could not find the quote to duplicate.",
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        console.error("Failed to copy quote:", error)
-        setError("Failed to copy quote data")
-        toast({
-          title: "Error",
-          description: "Failed to copy quote data. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-        setIsCopying(false)
-      }
-    }
-
-    copyQuote()
-  }, [copyFromId, form, toast])
-
-  const addItem = () => {
-    setItems([
-      ...items,
-      {
-        description: "",
-        quantity: 1,
-        unit: "unit",
-        unitPrice: 0,
-        totalPrice: 0,
-      },
-    ])
-  }
-
-  const updateItem = (index: number, field: keyof QuoteItem, value: any) => {
-    const updatedItems = [...items]
-    updatedItems[index] = { ...updatedItems[index], [field]: value }
-
-    // Recalculate total price if quantity or unit price changes
-    if (field === "quantity" || field === "unitPrice" || field === "discount") {
-      const quantity = field === "quantity" ? value : updatedItems[index].quantity
-      const unitPrice = field === "unitPrice" ? value : updatedItems[index].unitPrice
-      const discount = field === "discount" ? value : updatedItems[index].discount || 0
-
-      updatedItems[index].totalPrice = quantity * unitPrice - discount
-    }
-
-    setItems(updatedItems)
-  }
-
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index))
-  }
-
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (items.length === 0) {
-      setError("Please add at least one item to the quote")
-      toast({
-        title: "Validation Error",
-        description: "Please add at least one item to the quote",
-        variant: "destructive",
+  const handleCustomerSelect = (customer: (typeof existingCustomers)[0] | null) => {
+    if (customer) {
+      setSelectedCustomerId(customer.id)
+      form.setValue("customer", customer)
+      // 清除验证错误
+      form.clearErrors("customer")
+    } else {
+      setSelectedCustomerId(undefined)
+      form.setValue("customer", {
+        name: "",
+        abn: "",
+        contact: "",
+        phone: "",
+        email: "",
+        address: "",
       })
-      return
     }
+  }
 
+  const handleProductSelect = (index: number, product: (typeof availableProducts)[0] | null) => {
+    if (product) {
+      form.setValue(`items.${index}.productId`, product.id)
+      form.setValue(`items.${index}.description`, product.name)
+      form.setValue(`items.${index}.unitPrice`, product.price)
+      setSelectedProductIds((prev) => ({ ...prev, [index]: product.id }))
+      form.clearErrors(`items.${index}.description`)
+    } else {
+      form.setValue(`items.${index}.productId`, undefined)
+      form.setValue(`items.${index}.description`, "")
+      form.setValue(`items.${index}.unitPrice`, 0)
+      setSelectedProductIds((prev) => ({ ...prev, [index]: undefined }))
+    }
+  }
+
+  const calculateItemTotal = (index: number) => {
+    const item = form.watch(`items.${index}`)
+    return item.quantity * item.unitPrice - (item.discount || 0)
+  }
+
+  const calculateGrandTotal = () => {
+    const items = form.watch("items")
+    return items.reduce((total, item) => {
+      return total + item.quantity * item.unitPrice - (item.discount || 0)
+    }, 0)
+  }
+
+  const onSubmit = async (data: FormData) => {
+    setSubmitting(true)
+    console.log(data);
+    
     try {
-      setSubmitting(true)
-      setError(null)
-
-      const { subTotal, gstTotal, total } = calculateQuoteTotals(items)
-
-      const quoteData: Partial<Quote> = {
-        quoteNumber: values.quoteNumber,
-        customer: values.customer,
-        customerABN: values.customerABN || undefined,
-        phone: values.phone || undefined,
-        email: values.email || undefined,
-        amounts: {
-          subTotal,
-          gstTotal,
-          total,
-          currency: values.currency,
-        },
-        quoteDate: new Date(values.quoteDate),
-        quoteDateText: new Date(values.quoteDate).toLocaleDateString("en-AU"),
-        items,
-        salesRep: values.salesRep || undefined,
-        store: values.store || undefined,
-        warehouse: values.warehouse || undefined,
-        company: {
-          name: values.companyName,
-          abn: values.companyABN || undefined,
-        },
-        remarks: [
-          {
-            general: values.remarks || undefined,
-            warrantyAndSpecial: values.warrantyRemarks || undefined,
-          },
-        ],
+      // 构建API数据
+      const apiData = {
+        customer: data.customer,
+        items: data.items,
+        depositAmount: data.depositAmount,
+        depositAttachment: data.depositAttachment?.[0] ? "https://example.com/upload/xyz.pdf" : undefined,
+        status: "pending",
+        remarks: data.remarks,
+        warrantyNotes: data.warrantyNotes,
       }
 
-      const newQuote = await createQuote(quoteData)
-      setSuccess("Quote created successfully")
+      console.log("Submitting quote data:", apiData)
+
+      // 模拟API调用
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
       toast({
-        title: "Success",
-        description: "Quote created successfully",
+        title: "Quote Submitted Successfully",
+        description: "Your quote has been submitted and is pending approval.",
       })
 
-      // Navigate to the new quote after a short delay
-      setTimeout(() => {
-        router(`/quotes/${newQuote.id}`)
-      }, 1000)
+      // 重置表单
+      form.reset()
+      setSelectedCustomerId(undefined)
     } catch (error) {
-      console.error("Failed to create quote:", error)
-      setError("Failed to create quote. Please try again.")
+      console.error("Failed to submit quote:", error)
       toast({
-        title: "Error",
-        description: "Failed to create quote. Please try again.",
+        title: "Submission Failed",
+        description: "Failed to submit quote. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -249,510 +455,555 @@ export default function NewQuotePage() {
     }
   }
 
-  const calculateTotals = () => {
-    const { subTotal, gstTotal, total } = calculateQuoteTotals(items)
-
-    return {
-      subTotal,
-      gstTotal,
-      total,
-    }
-  }
-
-  const formatCurrency = (amount: number, currency: string = form.watch("currency")) => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-AU", {
       style: "currency",
-      currency,
+      currency: "AUD",
     }).format(amount)
   }
 
-  const { subTotal, gstTotal, total } = calculateTotals()
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-6 flex justify-center items-center h-64">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-500 mx-auto mb-4" />
-          <p className="text-gray-500">{isCopying ? "Copying quote data..." : "Loading..."}</p>
-        </div>
-      </div>
-    )
-  }
+  const isExistingCustomer = selectedCustomerId !== undefined
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => router("/quotes")}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <h1 className="text-3xl font-bold">{copyFromId ? "Duplicate Quote" : "New Quote"}</h1>
-        </div>
+    <div className="container mx-auto py-6 max-w-6xl">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Submit Quote</h1>
       </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {success && (
-        <Alert className="bg-green-50 text-green-800 border-green-200">
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>{success}</AlertDescription>
-        </Alert>
-      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs defaultValue="basic-info">
-            <TabsList>
-              <TabsTrigger value="basic-info">Basic Information</TabsTrigger>
-              <TabsTrigger value="items">Quote Items</TabsTrigger>
-              <TabsTrigger value="remarks">Remarks</TabsTrigger>
-            </TabsList>
+          {/* 客户信息 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Customer Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Customer</label>
+                <CustomerSelector value={selectedCustomerId} onValueChange={handleCustomerSelect} />
+              </div>
 
-            <TabsContent value="basic-info" className="space-y-6 mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Customer Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customer"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Customer Name*</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter customer name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="customerABN"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Customer ABN</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter ABN" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter phone number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter email address" type="email" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Quote Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="quoteNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Quote Number*</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormDescription>Quote identifier</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="quoteDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Quote Date*</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="salesRep"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sales Representative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter sales rep name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="store"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Store</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter store name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="warehouse"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Warehouse</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter warehouse name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="currency"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Currency*</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select currency" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                            <SelectItem value="USD">USD - US Dollar</SelectItem>
-                            <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building className="h-5 w-5" />
-                    Company Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="companyName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company Name*</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="companyABN"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company ABN</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="items" className="space-y-6 mt-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Quote Items
-                  </CardTitle>
-                  <Button type="button" onClick={addItem} variant="outline" size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Item
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {items.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <Package className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                      <p>No items added yet</p>
-                      <Button type="button" onClick={addItem} variant="outline" className="mt-4">
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add First Item
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {items.map((item, index) => (
-                        <div key={index} className="border rounded-md p-4">
-                          <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-medium">Item #{index + 1}</h3>
-                            <Button
-                              type="button"
-                              onClick={() => removeItem(index)}
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Remove
-                            </Button>
-                          </div>
-
-                          <div className="grid grid-cols-1 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium mb-1">Description*</label>
-                              <Input
-                                value={item.description}
-                                onChange={(e) => updateItem(index, "description", e.target.value)}
-                                placeholder="Enter item description"
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium mb-1">Quantity*</label>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium mb-1">Unit*</label>
-                                <Select value={item.unit} onValueChange={(value) => updateItem(index, "unit", value)}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select unit" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="unit">Unit</SelectItem>
-                                    <SelectItem value="piece">Piece</SelectItem>
-                                    <SelectItem value="package">Package</SelectItem>
-                                    <SelectItem value="hour">Hour</SelectItem>
-                                    <SelectItem value="day">Day</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium mb-1">Product Nature</label>
-                                <Select
-                                  value={item.productNature || ""}
-                                  onValueChange={(value) => updateItem(index, "productNature", value || undefined)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select nature" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">None</SelectItem>
-                                    <SelectItem value="contract">Contract</SelectItem>
-                                    <SelectItem value="warranty">Warranty</SelectItem>
-                                    <SelectItem value="gift">Gift</SelectItem>
-                                    <SelectItem value="selfPurchase">Self Purchase</SelectItem>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium mb-1">Unit Price*</label>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.unitPrice}
-                                  onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value))}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium mb-1">Discount</label>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.discount || 0}
-                                  onChange={(e) => updateItem(index, "discount", Number(e.target.value))}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium mb-1">Total Price</label>
-                                <Input
-                                  type="text"
-                                  value={formatCurrency(item.totalPrice)}
-                                  disabled
-                                  className="bg-gray-50"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                <FormField
+                  control={form.control}
+                  name="customer.name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2 h-5">
+                        <Building2 className="h-4 w-4" />
+                        Company Name *
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter company name"
+                          {...field}
+                          disabled={isExistingCustomer}
+                          className="h-10"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </CardContent>
-                <CardFooter className="flex justify-between border-t pt-4">
-                  <div>
-                    <Button type="button" onClick={addItem} variant="outline">
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Another Item
-                    </Button>
-                  </div>
-                  <div className="text-right">
-                    <div className="space-y-1">
-                      <div className="text-sm">
-                        Subtotal: <span className="font-medium">{formatCurrency(subTotal)}</span>
-                      </div>
-                      <div className="text-sm">
-                        GST: <span className="font-medium">{formatCurrency(gstTotal)}</span>
-                      </div>
-                      <div className="text-base font-bold">
-                        Total: <span className="text-green-600">{formatCurrency(total)}</span>
+                />
+
+                <FormField
+                  control={form.control}
+                  name="customer.abn"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="h-5 flex items-center">ABN</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter ABN" {...field} disabled={isExistingCustomer} className="h-10" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                <FormField
+                  control={form.control}
+                  name="customer.contact"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2 h-5">
+                        <User className="h-4 w-4" />
+                        Contact Person *
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter contact person"
+                          {...field}
+                          disabled={isExistingCustomer}
+                          className="h-10"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="customer.phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2 h-5">
+                        <Phone className="h-4 w-4" />
+                        Phone *
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter phone number"
+                          {...field}
+                          disabled={isExistingCustomer}
+                          className="h-10"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="customer.email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Email *
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="Enter email address" {...field} disabled={isExistingCustomer} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="customer.address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Delivery Address *
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter delivery address"
+                        {...field}
+                        disabled={isExistingCustomer}
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* 商品列表 - 紧凑卡片样式 */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Quote Items
+              </CardTitle>
+              <Button
+                type="button"
+                onClick={() =>
+                  append({
+                    description: "",
+                    detailDescription: "",
+                    unit: "ea",
+                    quantity: 1,
+                    unitPrice: 0,
+                    discount: 0,
+                    goodsNature: "contract",
+                  })
+                }
+                variant="outline"
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Item
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="border rounded-lg p-4 bg-gray-50">
+                    {/* 项目标题行 - 修复布局 */}
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="font-medium text-gray-900">Item #{index + 1}</h3>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-sm font-medium text-green-600 whitespace-nowrap">
+                          {formatCurrency(calculateItemTotal(index))}
+                        </span>
+                        {fields.length > 1 && (
+                          <Button
+                            type="button"
+                            onClick={() => remove(index)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
+
+                    {/* 第一行：产品选择和商品性质 - 修复垂直对齐 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 items-end">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Product Selection</label>
+                        <ProductSelector
+                          value={form.watch(`items.${index}.productId`)}
+                          onValueChange={(product) => handleProductSelect(index, product)}
+                        />
+                      </div>
+
+                      <div>
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.goodsNature`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Goods Nature *</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="contract">Contract</SelectItem>
+                                  <SelectItem value="warranty">Warranty</SelectItem>
+                                  <SelectItem value="gift">Gift</SelectItem>
+                                  <SelectItem value="selfPurchase">Self Purchase</SelectItem>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 第二行：描述 */}
+                    <div className="mb-3">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.description`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Description *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter item description" {...field} className="h-9" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* 第三行：数量、单位、单价、折扣 */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.quantity`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Qty *</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                {...field}
+                                onChange={(e) => field.onChange(Number.parseInt(e.target.value) || 1)}
+                                className="h-9"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.unit`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Unit *</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="ea">Each</SelectItem>
+                                <SelectItem value="pc">Piece</SelectItem>
+                                <SelectItem value="set">Set</SelectItem>
+                                <SelectItem value="kg">Kilogram</SelectItem>
+                                <SelectItem value="m">Meter</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.unitPrice`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Unit Price *</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                {...field}
+                                onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
+                                className="h-9"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.discount`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Discount</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                {...field}
+                                onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
+                                className="h-9"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
-                </CardFooter>
-              </Card>
-            </TabsContent>
+                ))}
+              </div>
 
-            <TabsContent value="remarks" className="space-y-6 mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Remarks</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="remarks"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>General Remarks</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Enter any general remarks or notes about this quote"
-                            className="min-h-[100px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              {/* 表格预览 */}
+              {fields.length > 0 && (
+                <div className="mt-6 pt-4 border-t">
+                  <h4 className="font-medium text-gray-900 mb-3">Quote Preview</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse border border-gray-200">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">#</th>
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">Description</th>
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">Qty</th>
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">Unit</th>
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">Unit Price</th>
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">Discount</th>
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">Nature</th>
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fields.map((field, index) => {
+                          const item = form.watch(`items.${index}`)
+                          return (
+                            <tr key={field.id} className="hover:bg-gray-50">
+                              <td className="border border-gray-200 px-3 py-2 text-center">{index + 1}</td>
+                              <td className="border border-gray-200 px-3 py-2">
+                                {item.description || <span className="text-gray-400 italic">No description</span>}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-2 text-center">{item.quantity}</td>
+                              <td className="border border-gray-200 px-3 py-2 text-center capitalize">{item.unit}</td>
+                              <td className="border border-gray-200 px-3 py-2 text-right">
+                                {formatCurrency(item.unitPrice)}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-2 text-right">
+                                {item.discount > 0 ? formatCurrency(item.discount) : "-"}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-2 text-center capitalize">
+                                {item.goodsNature}
+                              </td>
+                              <td className="border border-gray-200 px-3 py-2 text-right font-medium">
+                                {formatCurrency(calculateItemTotal(index))}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                        <tr className="bg-green-50 font-medium">
+                          <td colSpan={7} className="border border-gray-200 px-3 py-2 text-right">
+                            Grand Total:
+                          </td>
+                          <td className="border border-gray-200 px-3 py-2 text-right text-green-600 font-bold">
+                            {formatCurrency(calculateGrandTotal())}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
-                  <FormField
-                    control={form.control}
-                    name="warrantyRemarks"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Warranty & Special Remarks</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Enter warranty information or special conditions"
-                            className="min-h-[100px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+              {/* 底部操作栏 */}
+              <div className="flex justify-between items-center pt-4 border-t mt-4">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    append({
+                      description: "",
+                      detailDescription: "",
+                      unit: "ea",
+                      quantity: 1,
+                      unitPrice: 0,
+                      discount: 0,
+                      goodsNature: "contract",
+                    })
+                  }
+                  variant="outline"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Another Item
+                </Button>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-green-600">
+                    Grand Total: {formatCurrency(calculateGrandTotal())}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
+          {/* 定金信息 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 定金信息 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Deposit Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="depositAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deposit Amount *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Enter deposit amount"
+                          {...field}
+                          onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="depositAttachment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Proof</FormLabel>
+                      <FormControl>
+                        <FileUploader
+                          value={field.value}
+                          onChange={field.onChange}
+                          maxFiles={3}
+                          accept={{
+                            "image/*": [".png", ".jpg", ".jpeg"],
+                            "application/pdf": [".pdf"],
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* 备注信息 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="remarks"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>General Remarks</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Enter any general remarks" rows={3} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="warrantyNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Warranty Notes</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Enter warranty information" rows={3} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 提交按钮 */}
           <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => router("/quotes")} disabled={submitting}>
-              Cancel
+            <Button type="button" variant="outline">
+              Save as Draft
             </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  Submitting...
                 </>
               ) : (
-                "Create Quote"
+                "Submit Quote"
               )}
             </Button>
           </div>

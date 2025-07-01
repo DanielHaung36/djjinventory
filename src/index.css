@@ -7,6 +7,12 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+html, body, #root {
+  height: auto !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -15,6 +21,7 @@ body {
 
 @layer base {
   :root {
+    
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
