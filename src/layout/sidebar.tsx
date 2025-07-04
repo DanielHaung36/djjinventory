@@ -33,6 +33,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Grid3X3,
+  Users
 } from "lucide-react"
 import { useSidebar } from "./sidebar-provider"
 import { useLanguage } from "./language-provider"
@@ -113,6 +114,7 @@ export function Sidebar() {
             },
           ],
         },
+        { key: "customer", label: "Customer", icon: Users, href: "/customer" },
         {
           key: "inventory",
           label: "Inventory",
@@ -161,7 +163,7 @@ export function Sidebar() {
               icon: Grid3X3,
               href: "/procure/dashboard",
             },
-                   {
+            {
               key: "products-new",
               label: "New Product",
               icon: Plus,
@@ -179,14 +181,14 @@ export function Sidebar() {
               icon: ShoppingCart,
               href: "/procure/procurement",
             },
-     
+
             {
               key: "procure-review",
               label: "Product Reviews",
               icon: Star,
               href: "/procure/admin/products",
             },
-                    {
+            {
               key: "procure-admin",
               label: "Admin Approvals",
               icon: CheckCircle,

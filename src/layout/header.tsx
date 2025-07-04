@@ -19,10 +19,20 @@ import { useLanguage } from "./language-provider"
 import { Sidebar } from "./sidebar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-
+import { useAppDispatch } from "@/app/hooks";
+import { useLogoutMutation,useGetProfileQuery } from "@/features/auth/authApi";
+import { logoutLocal } from "@/features/auth/authSlice";
+import { useNavigate } from "react-router-dom";
 export function Header() {
   const { isMobile, isOpen, setOpen } = useSidebar()
   const { language, setLanguage, t } = useLanguage()
+ const dispatch = useAppDispatch();
+ const navigate = useNavigate();
+  const [logoutApi] = useLogoutMutation();
+    // RTK Query 自动拉取用户
+  const { data: data, isLoading } = useGetProfileQuery()
+  console.log(data);
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
@@ -217,7 +227,13 @@ export function Header() {
               </div>
               <DropdownMenuSeparator className="bg-gray-200" />
               <div className="p-2">
-                <DropdownMenuItem className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 rounded-lg">
+                <DropdownMenuItem onClick={async () => {
+                    try {
+                      await logoutApi().unwrap();
+                    } catch {}
+                    dispatch(logoutLocal());
+                    navigate("/login");
+                  }}  className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 rounded-lg">
                   <LogOut className="mr-3 h-4 w-4" />
                   <span>{t("user.logout")}</span>
                 </DropdownMenuItem>

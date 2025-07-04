@@ -13,8 +13,8 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation()
   const from = location.state?.from?.pathname || '/dashboard'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('sales_leader_per_store@example.com');
+  const [password, setPassword] = useState('qq123456');
   const [loading, setLoading] = React.useState(false)
   const [login] = useLoginMutation()
 

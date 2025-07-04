@@ -78,15 +78,19 @@ import type {
 } from './authApi'
 import { authApi } from './authApi'
 
-/** —— state 结构 —— **/
+// 只用 any，前端不关心它长什么样
 interface AuthState {
-    user: User | null
+  token: string | null
+  user: any     // ← 这里用 any，自动换成后端给你的完整对象
+  profile:any
 }
 
-/** —— 初始值 —— **/
 const initialState: AuthState = {
-    user: null,
+  token: null,
+  user: null,
+  profile:null
 }
+
 
 const authSlice = createSlice({
     name: 'auth',
@@ -94,15 +98,20 @@ const authSlice = createSlice({
     reducers: {
         /** 手动登出，清空 state **/
         logoutLocal(state) {
-            state.user = null;
-        },
+            state.token = null
+            state.user  = null
+    },
+        setUser(state, action: PayloadAction<User>) {
+      state.user = action.payload
+    },
     },
     extraReducers: (builder) => {
         // —— 当 login mutation 成功时，把返回的 token/user 存进去 ——
         builder.addMatcher(
             authApi.endpoints.login.matchFulfilled,
             (state, { payload }: PayloadAction<LoginResponse>) => {
-                state.user = payload.user
+                state.token = payload.token
+                state.user  = payload.user    // ← 整个 user/storedetails JSON 都在这里
             }
         )
         // —— 当 register mutation 成功时，同样存 token/user ——
@@ -116,10 +125,10 @@ const authSlice = createSlice({
         // 你也可以根据需要，对其他接口做缓存失效、清理之类的处理
         builder.addMatcher(
             authApi.endpoints.getProfile.matchFulfilled,
-            (state, { payload }) => { state.user = payload }
+            (state, { payload }) => { state.profile = payload }
         )
     },
 })
 
-export const { logoutLocal } = authSlice.actions;
+export const { logoutLocal,setUser  } = authSlice.actions;
 export default authSlice.reducer

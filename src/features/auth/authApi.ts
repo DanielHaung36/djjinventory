@@ -8,13 +8,46 @@ export interface LoginPayload {
     password: string
 }
 
-// 用户对象，带上 role
-export interface User {
-    id: string
-    name: string
-    email: string
-    role: string       // admin / editor / guest / …
+// src/features/auth/types.ts
+
+/** 单个角色对象 */
+export interface Role {
+  /** 角色 ID */
+  ID: number;
+  /** 角色名称 */
+  Name: string;
+  /** 创建时间 ISO 字符串 */
+  CreatedAt: string;
+  /** 更新时间 ISO 字符串 */
+  UpdatedAt: string;
+  /** 该角色的所有权限列表，后端目前给 null 时可以定义为 null 或空数组 */
+  Permissions: unknown[] | null;
 }
+
+/** 用户对象 */
+export interface User {
+  /** 用户主键 */
+  id: number;
+  /** 乐观锁版本号 */
+  version: number;
+  /** 登录名 */
+  username: string;
+  /** 所属门店 ID */
+  store_id: number;
+  /** 邮箱 */
+  email: string;
+  /** 是否已删除 */
+  is_deleted: boolean;
+  /** 创建时间 ISO 字符串 */
+  created_at: string;
+  /** 更新时间 ISO 字符串 */
+  updated_at: string;
+  /** 该用户所属的角色列表 */
+  roles: Role[];
+  /** 头像 URL */
+  avatar_url: string;
+}
+
 
 // 后端返回的数据结构
 export interface LoginResponse {
