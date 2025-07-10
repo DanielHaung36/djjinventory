@@ -13,8 +13,11 @@ import Dashboard from "../features/dashboard/Dashboard";
 import SalesOverviewPage from "../features/sales/OverviewPage";
 import CustomerManagement from "../features/customer/page.tsx";
 import InventoryOverviewPage from "../features/inventory/InventoryOverviewPage";
+import InventoryOverviewPageEnhanced from "../features/inventory/InventoryOverviewPageEnhanced";
+import InventoryTransactionsPage from "../features/inventory/inventorytransions";
 import ProductDetailPage from "../features/products/ProductDetails";
 import ProductDictionaryPage from "../features/products/ProductDictionaryPage";
+import InventoryOverviewPageNewWrapper from "../features/inventory/InventoryOverviewPageNew.tsx";
 import ProductEditPage from "../features/products/ProductEditPage";
 import ProductManagement from "../features/products/ProductManagement.tsx";
 import PurchasePage from "../features/procure/Purchase";
@@ -103,7 +106,9 @@ export default function AppRoutes() {
             <Route path="inventory">
               <Route index element={<Navigate to="overview" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="overview" element={<InventoryOverviewPage />} />
+              <Route path="overview" element={<InventoryOverviewPageNewWrapper />} />
+              <Route path="overview-legacy" element={<InventoryOverviewPage />} />
+              <Route path="transactions/:inventoryId" element={<InventoryTransactionsPage />} />
               <Route path="inbound" element={<InboundPage />} />
               <Route path="/inventory/inbound/new" element={<NewInboundPage />} />
               <Route path="/inventory/outbound/new" element={<NewOutboundPage />} />

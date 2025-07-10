@@ -1,7 +1,10 @@
 export interface StockEntry {
   warehouse_id: number
   warehouse_name?: string
-  quantity: number
+  on_hand?: number
+  reserved?: number
+  available?: number
+
 }
 
 

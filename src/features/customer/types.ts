@@ -23,6 +23,7 @@ export interface Region {
   company: Company
   createdAt: string
   updatedAt: string
+  warehouses?:Warehouse[]
 }
 
 export interface Store {

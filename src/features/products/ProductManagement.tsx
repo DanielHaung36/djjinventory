@@ -96,6 +96,8 @@ export default function ProductManagement() {
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
+  console.log(filteredProducts.length);
+  
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
     return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
@@ -109,7 +111,7 @@ export default function ProductManagement() {
   // Statistics
   const stats = useMemo(() => {
     const totalProducts = allProducts.length
-    const activeProducts = allProducts.filter((p) => p.status === "Active").length
+    const activeProducts = allProducts.filter((p) => p.status === "draft").length
     const totalSales = allProducts.reduce((sum, p) => sum + p.total_sales, 0)
     return { totalProducts, activeProducts, totalSales }
   }, [allProducts])
@@ -643,9 +645,9 @@ export default function ProductManagement() {
             training_docs: "",
             product_url: "",
             stocks: [
-              { warehouse_id: 1, warehouse_name: "Sydney", quantity: 0 },
-              { warehouse_id: 2, warehouse_name: "Perth", quantity: 0 },
-              { warehouse_id: 3, warehouse_name: "Brisbane", quantity: 0 },
+              { warehouse_id: 1, warehouse_name: "Sydney", on_hand: 0 },
+              { warehouse_id: 2, warehouse_name: "Perth", on_hand: 0 },
+              { warehouse_id: 3, warehouse_name: "Brisbane", on_hand: 0 },
             ],
             last_update: new Date().toISOString(),
             last_modified_by: "Import",

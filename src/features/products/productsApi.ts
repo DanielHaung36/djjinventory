@@ -3,9 +3,10 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 import type { StockEntry, ProductImage, SalesData, Product } from './productTypes'
 
 // 你后端 ws 路径，比如：ws://localhost:8080/ws/products
-const WS_URL = (topic: string) =>
-  `${window.location.origin.replace(/^http/, 'ws')}/ws/${topic}`
-
+// const WS_URL = (topic: string) =>
+//   `${import.meta.env.VITE_API_HOST.replace(/^http/, 'ws')}/ws/${topic}`
+const WS_URL = `${import.meta.env.VITE_API_HOST.replace(/^http/, 'wss')}/ws/products`
+console.log(WS_URL);
 export const productsApi = createApi({
   reducerPath: 'productsApi',
   baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
@@ -28,8 +29,7 @@ export const productsApi = createApi({
       ) {
         // 等待初次数据加载完
         await cacheDataLoaded
-
-        const socket = new WebSocket(WS_URL('products'))
+        const socket = new WebSocket(WS_URL)
 
         socket.onmessage = (evt) => {
           const msg = JSON.parse(evt.data) as {

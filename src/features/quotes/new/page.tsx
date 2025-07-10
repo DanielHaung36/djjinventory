@@ -45,6 +45,7 @@ const formSchema = z.object({
   remarks:      z.string().optional(),
   warrantyNotes:z.string().optional(),
 });
+
 type FormData = z.infer<typeof formSchema>
 
 // 模拟客户数据

@@ -110,9 +110,9 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
 
   const [stocks, setStocks] = useState(
     product?.stocks || [
-      { warehouse_id: 1, warehouse_name: "Sydney", quantity: 0 },
-      { warehouse_id: 2, warehouse_name: "Perth", quantity: 0 },
-      { warehouse_id: 3, warehouse_name: "Brisbane", quantity: 0 },
+      { warehouse_id: 1, warehouse_name: "Sydney", on_hand: 0 },
+      { warehouse_id: 2, warehouse_name: "Perth", on_hand: 0 },
+      { warehouse_id: 3, warehouse_name: "Brisbane", on_hand: 0 },
     ],
   )
 
@@ -244,8 +244,8 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
     e.preventDefault()
   }
 
-  const handleStockChange = (warehouseId: number, quantity: number) => {
-    setStocks(stocks.map((stock) => (stock.warehouse_id === warehouseId ? { ...stock, quantity } : stock)))
+  const handleStockChange = (warehouseId: number, on_hand: number) => {
+    setStocks(stocks.map((stock) => (stock.warehouse_id === warehouseId ? { ...stock, on_hand } : stock)))
   }
 
   const uploadPendingImages = async (): Promise<ProductImage[]> => {
@@ -596,7 +596,7 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
                   <Input
                     id={`stock_${stock.warehouse_id}`}
                     type="number"
-                    value={stock.quantity}
+                    value={stock.on_hand}
                     onChange={(e) => handleStockChange(stock.warehouse_id, Number.parseInt(e.target.value) || 0)}
                     className="h-10"
                   />
