@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -112,6 +112,10 @@ export default function InventoryTransactionsPage() {
   const params = useParams()
   const inventoryId = params.inventoryId
   const navigate = useNavigate()
+  
+  // 从URL查询参数获取仓库ID
+  const [searchParams] = useSearchParams()
+  const warehouseId = searchParams.get('warehouseId') ? parseInt(searchParams.get('warehouseId')!) : undefined
 
   // inventoryId 实际上是产品ID，我们需要获取该产品的库存信息
   const { 
@@ -138,6 +142,7 @@ export default function InventoryTransactionsPage() {
   const { data, isLoading: txLoading, isError: txError } =
     useGetProductTransactionsQuery({ 
       productId: Number(inventoryId), 
+      warehouseId: warehouseId,
       page: 1, 
       page_size: 100 
     }, {
@@ -487,7 +492,12 @@ BARCODE: ${inventory.partNumberAU}`
         </Button>
         <div>
           <h1 className="text-3xl font-bold">{t("transactions.managementTitle")}</h1>
-          <p className="text-muted-foreground">{t("transactions.managementDesc", { id: inventory.id })}</p>
+          <p className="text-muted-foreground">
+            {warehouseId 
+              ? `查看产品 ${inventory.id} 在指定仓库的交易记录`
+              : t("transactions.managementDesc", { id: inventory.id })
+            }
+          </p>
         </div>
       </div>
 
@@ -632,7 +642,12 @@ BARCODE: ${inventory.partNumberAU}`
           <div className="flex items-center">
             <div>
               <CardTitle>{t("transactions.managementTitle")}</CardTitle>
-              <CardDescription> {t("transactions.managementDesc", { id: inventory.partNumberAU })}</CardDescription>
+              <CardDescription>
+                {warehouseId 
+                  ? `${inventory.partNumberAU} - 仓库交易记录 (仓库ID: ${warehouseId})`
+                  : t("transactions.managementDesc", { id: inventory.partNumberAU })
+                }
+              </CardDescription>
             </div>
           </div>
 

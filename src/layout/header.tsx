@@ -20,15 +20,14 @@ import { Sidebar } from "./sidebar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { useAppDispatch } from "@/app/hooks";
-import { useLogoutMutation,useGetProfileQuery } from "@/features/auth/authApi";
-import { logoutLocal } from "@/features/auth/authSlice";
+import { useGetProfileQuery } from "@/features/auth/authApi";
 import { useNavigate } from "react-router-dom";
+import { performLogout } from "@/lib/auth-utils";
 export function Header() {
   const { isMobile, isOpen, setOpen } = useSidebar()
   const { language, setLanguage, t } = useLanguage()
  const dispatch = useAppDispatch();
  const navigate = useNavigate();
-  const [logoutApi] = useLogoutMutation();
     // RTK Query 自动拉取用户
   const { data: data, isLoading } = useGetProfileQuery()
   console.log(data);
@@ -228,10 +227,9 @@ export function Header() {
               <DropdownMenuSeparator className="bg-gray-200" />
               <div className="p-2">
                 <DropdownMenuItem onClick={async () => {
-                    try {
-                      await logoutApi().unwrap();
-                    } catch {}
-                    dispatch(logoutLocal());
+                    // 使用统一的登出函数
+                    await performLogout(dispatch);
+                    // 跳转到登录页面
                     navigate("/login");
                   }}  className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 rounded-lg">
                   <LogOut className="mr-3 h-4 w-4" />

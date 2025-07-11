@@ -5,7 +5,7 @@ import type { StockEntry, ProductImage, SalesData, Product } from './productType
 // 你后端 ws 路径，比如：ws://localhost:8080/ws/products
 // const WS_URL = (topic: string) =>
 //   `${import.meta.env.VITE_API_HOST.replace(/^http/, 'ws')}/ws/${topic}`
-const WS_URL = `${import.meta.env.VITE_API_HOST.replace(/^http/, 'wss')}/ws/products`
+const WS_URL = `${import.meta.env.VITE_API_HOST.replace(/^http/, 'ws')}/ws/products`
 console.log(WS_URL);
 export const productsApi = createApi({
   reducerPath: 'productsApi',

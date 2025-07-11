@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
+import { useSearchParams } from "react-router-dom"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,6 +45,7 @@ const formSchema = z.object({
 
 export function OutboundForm() {
   const router = useNavigate()
+  const [searchParams] = useSearchParams()
   const [items, setItems] = useState<OutboundItem[]>([])
   const [soItems, setSoItems] = useState<OutboundItem[]>([])
   const [manualItems, setManualItems] = useState<OutboundItem[]>([])
@@ -89,6 +91,31 @@ export function OutboundForm() {
     form.setValue("referenceNumber", referenceNumberInput)
   }, [referenceNumberInput, form])
 
+  // 处理从库存页面传来的产品信息
+  useEffect(() => {
+    const productId = searchParams.get("productId")
+    const productName = searchParams.get("productName")
+    
+    if (productId && productName) {
+      // 自动添加该产品到手动项目列表
+      const newItem: OutboundItem = {
+        id: `manual-from-inventory-${productId}`,
+        name: decodeURIComponent(productName),
+        sku: `SKU-${productId}`,
+        quantity: 1,
+        unitPrice: 0,
+        location: "",
+        lotNumber: "",
+        expirationDate: "",
+        source: "manual"
+      }
+      setManualItems([newItem])
+      
+      // 设置参考号码为产品信息
+      setReferenceNumberInput(`${decodeURIComponent(productName)} - 出库`)
+    }
+  }, [searchParams])
+
   useEffect(() => {
     const loadSalesOrders = async () => {
       try {
@@ -121,7 +148,7 @@ export function OutboundForm() {
     }
 
     try {
-      await createOutboundTransaction({
+      const result = await createOutboundTransaction({
         ...values,
         // Use the first transaction type for backward compatibility
         transactionType: values.transactionTypes[0],
@@ -131,16 +158,20 @@ export function OutboundForm() {
         files: values.files,
       })
 
-      toast({
-        title: "Success",
-        description: "Outbound transaction created successfully.",
-      })
-
-      router("/inventory/outbound")
+      if (result.success) {
+        toast({
+          title: "出库成功",
+          description: `出库交易 ${result.id} 创建成功，库存已更新。`,
+        })
+        router("/inventory/outbound")
+      } else {
+        throw new Error("出库交易创建失败")
+      }
     } catch (error) {
+      console.error("出库失败:", error)
       toast({
-        title: "Error",
-        description: "Failed to create outbound transaction. Please try again.",
+        title: "出库失败",
+        description: error instanceof Error ? error.message : "出库交易创建失败，请重试。",
         variant: "destructive",
       })
     }

@@ -383,11 +383,17 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
     // 获取产品的交易历史
     getProductTransactions: builder.query<InventoryTransaction[], {
       productId: number;
+      warehouseId?: number;
       page?: number;
       page_size?: number;
     }>({
-      query: ({ productId, page = 1, page_size = 20 }) => 
-        `products/${productId}/transactions?page=${page}&page_size=${page_size}`,
+      query: ({ productId, warehouseId, page = 1, page_size = 20 }) => {
+        let url = `products/${productId}/transactions?page=${page}&page_size=${page_size}`
+        if (warehouseId) {
+          url += `&warehouse_id=${warehouseId}`
+        }
+        return url
+      },
       providesTags: (result, error, { productId }) => [
         { type: 'Transaction', id: productId },
         { type: 'Transaction', id: 'LIST' }

@@ -375,11 +375,20 @@ const InventoryOverviewPage: React.FC = () => {
       ><InfoIcon color="primary" sx={{ mr: 1 }} />详情</MenuItem>,
       <MenuItem
         key="in"
-        onClick={() => { openDialog("in", row.original);  closeMenu();}}
+        onClick={() => { 
+          closeMenu();
+          console.log('点击入库按钮, 产品信息:', row.original);
+          const targetUrl = `/inventory/inbound/new?productId=${row.original.id}&productName=${encodeURIComponent(row.original.product_name)}`;
+          console.log('跳转URL:', targetUrl);
+          navigate(targetUrl);
+        }}
       ><Storage color="info" sx={{ mr: 1 }} />入库</MenuItem>,
       <MenuItem
         key="out"
-        onClick={() => { closeMenu(); openDialog("out", row.original); }}
+        onClick={() => { 
+          closeMenu(); 
+          navigate(`/inventory/outbound/new?productId=${row.original.id}&productName=${encodeURIComponent(row.original.product_name)}`);
+        }}
       ><Storage color="success" sx={{ transform: "scaleX(-1)", mr: 1 }} />出库</MenuItem>,
       <MenuItem
         key="delete"

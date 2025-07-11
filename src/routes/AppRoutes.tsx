@@ -13,7 +13,7 @@ import Dashboard from "../features/dashboard/Dashboard";
 import SalesOverviewPage from "../features/sales/OverviewPage";
 import CustomerManagement from "../features/customer/page.tsx";
 import InventoryOverviewPage from "../features/inventory/InventoryOverviewPage";
-import InventoryOverviewPageEnhanced from "../features/inventory/InventoryOverviewPageEnhanced";
+// import InventoryOverviewPageEnhanced from "../features/inventory/InventoryOverviewPageEnhanceddemo.tsx";
 import InventoryTransactionsPage from "../features/inventory/inventorytransions";
 import ProductDetailPage from "../features/products/ProductDetails";
 import ProductDictionaryPage from "../features/products/ProductDictionaryPage";
@@ -110,8 +110,8 @@ export default function AppRoutes() {
               <Route path="overview-legacy" element={<InventoryOverviewPage />} />
               <Route path="transactions/:inventoryId" element={<InventoryTransactionsPage />} />
               <Route path="inbound" element={<InboundPage />} />
-              <Route path="/inventory/inbound/new" element={<NewInboundPage />} />
-              <Route path="/inventory/outbound/new" element={<NewOutboundPage />} />
+              <Route path="inbound/new" element={<NewInboundPage />} />
+              <Route path="outbound/new" element={<NewOutboundPage />} />
               <Route path="outbound" element={<OutboundPage />} />
             </Route>
             <Route path="products" element={<ProductManagement />} />

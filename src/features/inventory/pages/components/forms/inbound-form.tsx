@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Navigate, useNavigate } from "react-router-dom"
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -46,6 +46,7 @@ const formSchema = z.object({
 
 export function InboundForm() {
   const router = useNavigate()
+  const [searchParams] = useSearchParams()
   const [items, setItems] = useState<InboundItem[]>([])
   const [poItems, setPoItems] = useState<InboundItem[]>([])
   const [manualItems, setManualItems] = useState<InboundItem[]>([])
@@ -91,6 +92,31 @@ export function InboundForm() {
     form.setValue("referenceNumber", referenceNumberInput)
   }, [referenceNumberInput, form])
 
+  // 处理从库存页面传来的产品信息
+  useEffect(() => {
+    const productId = searchParams.get("productId")
+    const productName = searchParams.get("productName")
+    
+    if (productId && productName) {
+      // 自动添加该产品到手动项目列表
+      const newItem: InboundItem = {
+        id: `manual-from-inventory-${productId}`,
+        name: decodeURIComponent(productName),
+        sku: `SKU-${productId}`,
+        quantity: 1,
+        unitPrice: 0,
+        location: "",
+        lotNumber: "",
+        expirationDate: "",
+        source: "manual"
+      }
+      setManualItems([newItem])
+      
+      // 设置参考号码为产品信息
+      setReferenceNumberInput(`${decodeURIComponent(productName)} - 入库`)
+    }
+  }, [searchParams])
+
   useEffect(() => {
     const loadPurchaseOrders = async () => {
       try {
@@ -123,7 +149,7 @@ export function InboundForm() {
     }
 
     try {
-      await createInboundTransaction({
+      const result = await createInboundTransaction({
         ...values,
         // Use the first transaction type for backward compatibility
         transactionType: values.transactionTypes[0],
@@ -134,16 +160,20 @@ export function InboundForm() {
         files: values.files,
       })
 
-      toast({
-        title: "Success",
-        description: "Inbound transaction created successfully.",
-      })
-
-      router("/inventory/inbound")
+      if (result.success) {
+        toast({
+          title: "入库成功",
+          description: `入库交易 ${result.id} 创建成功，库存已更新。`,
+        })
+        router("/inventory/inbound")
+      } else {
+        throw new Error("入库交易创建失败")
+      }
     } catch (error) {
+      console.error("入库失败:", error)
       toast({
-        title: "Error",
-        description: "Failed to create inbound transaction. Please try again.",
+        title: "入库失败",
+        description: error instanceof Error ? error.message : "入库交易创建失败，请重试。",
         variant: "destructive",
       })
     }

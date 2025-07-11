@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { MaterialReactTable, useMaterialReactTable, type MRT_ColumnDef } from "material-react-table"
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider"
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs"
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
+import { useAppSelector } from "@/app/hooks"
 import {
   type InventoryItem,
   type InventoryStats,
@@ -51,8 +53,31 @@ import {
 
 // === 主页面组件 ===
 function InventoryOverviewPageNew() {
+  // === 导航功能 ===
+  const navigate = useNavigate()
+  
+  // === 用户权限信息 ===
+  const currentUser = useAppSelector(state => {
+    if (state.auth.profile){
+       return  state.auth.profile
+    }
+  });
+  // === 权限判断 ===
+  const canViewAllRegions = useMemo(() => {
+    console.log('权限检查:', { 
+      currentUser, 
+      role: currentUser?.role,
+      hasRole: !!currentUser?.role 
+    })
+    if (!currentUser?.role) return false
+    const allowedRoles = ["admin", "financial_leader", "财务负责人", "管理员", "超级管理员"]
+    const hasPermission = allowedRoles.includes(currentUser.role)
+    console.log('权限结果:', { role: currentUser.role, hasPermission })
+    return hasPermission
+  }, [currentUser])
+
   // === 状态管理 ===
-  const [selectedRegion, setSelectedRegion] = useState<string>("all")
+  const [selectedRegion, setSelectedRegion] = useState<string>("")
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all")
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [filterMode, setFilterMode] = useState<"all" | "low_stock" | "critical">("all")
@@ -68,8 +93,17 @@ function InventoryOverviewPageNew() {
       page_size: pageSize,
     }
     
-    if (selectedRegion !== "all") {
-      params.region_id = parseInt(selectedRegion)
+    // 根据用户权限处理地区参数
+    if (canViewAllRegions) {
+      // 高权限用户：按选择的地区查询
+      if (selectedRegion && selectedRegion !== "all") {
+        params.region_id = parseInt(selectedRegion)
+      }
+    } else {
+      // 普通用户：传递选中的地区ID（后端会验证用户权限）
+      if (selectedRegion && selectedRegion !== "all") {
+        params.region_id = parseInt(selectedRegion)
+      }
     }
     
     if (selectedWarehouse !== "all") {
@@ -81,7 +115,7 @@ function InventoryOverviewPageNew() {
     }
     
     return params
-  }, [selectedRegion, selectedWarehouse, filterMode, page, pageSize])
+  }, [selectedRegion, selectedWarehouse, filterMode, page, pageSize, canViewAllRegions])
 
   // 获取地区数据
   const { data: regionsResponse, isLoading: regionsLoading } = useGetRegionsWithWarehousesQuery()
@@ -116,27 +150,71 @@ function InventoryOverviewPageNew() {
   // 是否正在加载
   const isLoading = inventoryLoading || statsLoading || regionsLoading
 
+  // === 用户权限初始化地区选择 ===
+  useEffect(() => {
+    if (!regionsLoading && regions.length > 0 && !selectedRegion) {
+      if (!canViewAllRegions) {
+        // 普通用户：设置为用户地区的第一个地区ID
+        const userRegionId = regions[0]?.id.toString()
+        if (userRegionId) {
+          console.log('普通用户初始化地区:', userRegionId)
+          setSelectedRegion(userRegionId)
+        }
+      } else {
+        // 高权限用户：设置为"all"
+        console.log('高权限用户初始化地区: all')
+        setSelectedRegion("all")
+      }
+    }
+  }, [canViewAllRegions, regions, regionsLoading, selectedRegion])
+
   // === 仓库联动逻辑 ===
   const availableWarehouses = useMemo(() => {
+    console.log('仓库联动调试:', { 
+      canViewAllRegions, 
+      selectedRegion, 
+      regionsCount: regions.length,
+      userRole: currentUser?.role 
+    })
+    
+    if (!canViewAllRegions) {
+      // 普通用户：只显示用户所在地区的仓库
+      // 从后端返回的regions数据中，普通用户只会收到自己地区的数据
+      const userWarehouses = regions.flatMap((region) => 
+        region.warehouses.map(warehouse => ({
+          ...warehouse,
+          displayName: warehouse.name,
+          regionName: region.name
+        }))
+      )
+      console.log('普通用户可用仓库:', userWarehouses)
+      return userWarehouses
+    }
+    
+    // 高权限用户的逻辑
     if (selectedRegion === "all") {
       // 返回所有地区的所有仓库
-      return regions.flatMap((region) => 
+      const allWarehouses = regions.flatMap((region) => 
         region.warehouses.map(warehouse => ({
           ...warehouse,
           displayName: `${region.name} - ${warehouse.name}`,
           regionName: region.name
         }))
       )
+      console.log('高权限用户-所有仓库:', allWarehouses)
+      return allWarehouses
     }
     
     // 返回选中地区的仓库
     const region = regions.find((r) => r.id.toString() === selectedRegion)
-    return region?.warehouses.map(warehouse => ({
+    const regionWarehouses = region?.warehouses.map(warehouse => ({
       ...warehouse,
       displayName: warehouse.name,
       regionName: region.name
     })) || []
-  }, [selectedRegion, regions])
+    console.log('高权限用户-指定地区仓库:', regionWarehouses)
+    return regionWarehouses
+  }, [selectedRegion, regions, canViewAllRegions, currentUser])
 
   // === 数据筛选逻辑 ===
   // 由于使用RTK Query，筛选逻辑已移到查询参数中
@@ -144,6 +222,10 @@ function InventoryOverviewPageNew() {
   
   // === 统计信息 ===
   const enhancedStats = useMemo(() => {
+    // 从后端API获取的统计数据
+    const apiStats = statsResponse?.data?.[0] || stats
+    
+    // 从当前页面数据计算的统计（仅用于详细显示）
     const totalOnHand = filteredData.reduce((sum, item) => sum + item.on_hand, 0)
     const totalReserved = filteredData.reduce((sum, item) => sum + item.reserved, 0)
     const totalAvailable = filteredData.reduce((sum, item) => sum + item.available, 0)
@@ -151,17 +233,20 @@ function InventoryOverviewPageNew() {
     const criticalItems = filteredData.filter((item) => item.alert_level === "critical")
 
     return {
-      totalItems: stats.total_items,
-      lowStockItems: stats.low_stock_items,
-      criticalItems: stats.critical_alerts,
-      totalValue: stats.total_value,
+      // 使用后端API返回的统计数据（全局统计）
+      totalItems: apiStats.total_items || 0,
+      lowStockItems: apiStats.low_stock_items || 0,
+      criticalItems: apiStats.critical_alerts || 0,
+      totalValue: apiStats.total_value || 0,
+      
+      // 当前页面的详细统计
       totalOnHand,
       totalReserved,
       totalAvailable,
       lowStockDetails: lowStockItems,
       criticalDetails: criticalItems,
     }
-  }, [stats, filteredData])
+  }, [statsResponse, stats, filteredData])
 
   // === 地区选择变化处理 ===
   const handleRegionChange = (regionValue: string) => {
@@ -257,7 +342,7 @@ function InventoryOverviewPageNew() {
           <div className="flex items-center gap-2">
             <WarehouseIcon className="h-4 w-4 text-gray-500 shrink-0" />
             <div>
-              <p className="font-medium text-sm">{row.original.region_name}</p>
+              <p className="font-bold text-sm">{row.original.region_name}</p>
               <p className="text-xs text-gray-500">
                 {row.original.warehouse_name}
                 {row.original.warehouse_code && (
@@ -383,7 +468,7 @@ function InventoryOverviewPageNew() {
     enableRowSelection: true,
     enableColumnFilterModes: true,
     enableColumnOrdering: true,
-    enableRowActions: true,
+    // enableRowActions: true,
     enableStickyHeader: true,
     enableDensityToggle: true,
     enableFullScreenToggle: true,
@@ -482,8 +567,9 @@ function InventoryOverviewPageNew() {
       <div
         key="history"
         onClick={() => {
-          toast({ title: "查看交易历史", description: `正在加载 ${row.original.product_name} 的交易历史` })
           closeMenu()
+          toast({ title: "查看交易历史", description: `正在跳转到 ${row.original.product_name} 在 ${row.original.warehouse_name} 的交易历史页面` })
+          navigate(`/inventory/transactions/${row.original.product_id}?warehouseId=${row.original.warehouse_id}`)
         }}
         className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
       >
@@ -495,6 +581,7 @@ function InventoryOverviewPageNew() {
         onClick={() => {
           toast({ title: "入库操作", description: `正在处理 ${row.original.product_name} 的入库操作` })
           closeMenu()
+          navigate(`/inventory/inbound/new?productId=${row.original.product_id}&productName=${encodeURIComponent(row.original.product_name)}`)
         }}
         className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
       >
@@ -506,6 +593,7 @@ function InventoryOverviewPageNew() {
         onClick={() => {
           toast({ title: "出库操作", description: `正在处理 ${row.original.product_name} 的出库操作` })
           closeMenu()
+          navigate(`/inventory/outbound/new?productId=${row.original.product_id}&productName=${encodeURIComponent(row.original.product_name)}`)
         }}
         className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
       >
@@ -677,13 +765,14 @@ function InventoryOverviewPageNew() {
               <Select
                 value={selectedRegion}
                 onValueChange={handleRegionChange}
+                disabled={!canViewAllRegions}
               >
                 <SelectTrigger>
                   <MapPin className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="选择地区" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">所有地区</SelectItem>
+                  {canViewAllRegions && <SelectItem value="all">所有地区</SelectItem>}
                   {regions.map((region) => (
                     <SelectItem key={region.id} value={region.id.toString()}>
                       {region.name}
@@ -955,15 +1044,34 @@ function InventoryOverviewPageNew() {
 
                   {/* 操作按钮 */}
                   <div className="flex gap-2 pt-4 border-t">
-                    <Button className="flex-1">
+                    <Button 
+                      className="flex-1"
+                      onClick={() => {
+                        toast({ title: "入库操作", description: `正在处理 ${selectedItem.product_name} 的入库操作` })
+                        navigate(`/inventory/inbound/new?productId=${selectedItem.product_id}&productName=${encodeURIComponent(selectedItem.product_name)}`)
+                      }}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       入库
                     </Button>
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        toast({ title: "出库操作", description: `正在处理 ${selectedItem.product_name} 的出库操作` })
+                        navigate(`/inventory/outbound/new?productId=${selectedItem.product_id}&productName=${encodeURIComponent(selectedItem.product_name)}`)
+                      }}
+                    >
                       <Minus className="h-4 w-4 mr-2" />
                       出库
                     </Button>
-                    <Button variant="outline">
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        toast({ title: "查看交易历史", description: `正在跳转到 ${selectedItem.product_name} 在 ${selectedItem.warehouse_name} 的交易历史页面` })
+                        navigate(`/inventory/transactions/${selectedItem.product_id}?warehouseId=${selectedItem.warehouse_id}`)
+                      }}
+                    >
                       <History className="h-4 w-4 mr-2" />
                       历史
                     </Button>

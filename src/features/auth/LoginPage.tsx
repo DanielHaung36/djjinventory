@@ -8,6 +8,9 @@ import {
 // import LarkIcon from '@mui/icons-material'; // 这里用一个占位图标，替换成你自己的 Lark 图标
 import { useLoginMutation } from "./authApi.ts";
 import { useToast } from "@/hooks/use-toast"
+import { useAppSelector, useAppDispatch } from "@/app/hooks"
+import { loginSuccess, logoutLocal } from "./authSlice"
+import { useLogoutMutation } from "./authApi"
 const LoginPage: React.FC = () => {
   const { toast } = useToast()
   const navigate = useNavigate();
@@ -17,44 +20,79 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('qq123456');
   const [loading, setLoading] = React.useState(false) 
   const [login] = useLoginMutation()
+  const [logout] = useLogoutMutation()
+  const dispatch = useAppDispatch()
+  
+  // 检查Redux状态
+  const user = useAppSelector(state => state.auth.user)
+  console.log('Current user in Redux:', user)
 
   const [keepSignedIn, setKeepSignedIn] = useState(false);
+
+  // 强制登出功能
+  const handleForceLogout = async () => {
+    try {
+      await logout().unwrap();
+    } catch (err) {
+      console.log('强制登出失败:', err)
+    }
+    dispatch(logoutLocal());
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true)
-    // TODO: dispatch(login({ email, password })).unwrap();
+    
     try {
-      const { user } = await login({ email, password }).unwrap();
-      console.log(user)
-      // 登录成功，跳转回原来页面
-       toast({
+      // 步骤1: 检查是否需要清理旧状态（只在切换用户时清理）
+      const currentUser = user;
+      const shouldClearOldState = currentUser && currentUser.email !== email;
+      
+      if (shouldClearOldState) {
+        console.log('检测到用户切换，清理旧状态...', { from: currentUser.email, to: email })
+        try {
+          await logout().unwrap(); // 调用后端清理cookie
+        } catch (err) {
+          console.log('旧状态清理失败，继续登录:', err)
+        }
+        dispatch(logoutLocal()); // 清理Redux和localStorage
+      } else {
+        console.log('同一用户登录，无需清理状态')
+      }
+      
+      // 步骤2: 执行登录
+      console.log('执行登录...')
+      const response = await login({ email, password }).unwrap();
+      console.log('Login response:', response);
+      
+      // 步骤3: 设置新的认证状态
+      dispatch(loginSuccess(response));
+      
+      // 登录成功提示
+      toast({
         title: "Login Success",
-        description: `Welcome back, ${user.name || user.email}!`,
+        description: `Welcome back, ${response.user?.email || response.user?.username || 'User'}!`,
         variant: "default",
       })
    
-      // if (isMobile) {
-      //   navigate("/mobile-menu")
-      // }
-      // else {
+      // 给Redux状态更新一点时间
+      setTimeout(() => {
+        console.log('Navigating to:', from);
         navigate(from, { replace: true })
-      // }
+      }, 100);
     } catch (err) {
       // 错误信息会通过 `error` 反映到 UI
-      console.error('Caught by unwrap():', err)
-        const msg = err?.data?.error || err.message || "Unknown error"
+      console.error('登录失败:', err)
+      const msg = err?.data?.error || err.message || "Unknown error"
       toast({
         title: "Login Failed",
         description: msg,
         variant: "destructive",
       })
-    }finally {
+    } finally {
       setLoading(false)
-      
     }
-
   };
   const handleLarkLogin = () => {
     // 发起 Lark OAuth 登录
@@ -91,6 +129,22 @@ const LoginPage: React.FC = () => {
         <Typography variant="h4" align="center" gutterBottom>
           Sign In
         </Typography>
+
+        {/* 显示当前用户状态 */}
+        {user && (
+          <Box sx={{ mb: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+            <Typography variant="body2" color="info.contrastText">
+              当前已登录用户: {user.email || user.username}
+            </Typography>
+            <Button 
+              size="small" 
+              onClick={handleForceLogout}
+              sx={{ mt: 1 }}
+            >
+              强制登出
+            </Button>
+          </Box>
+        )}
 
         <Box component="form" onSubmit={handleSubmit} noValidate>
           <TextField

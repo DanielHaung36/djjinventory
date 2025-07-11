@@ -1,23 +1,46 @@
 // src/features/auth/RequireAuth.tsx
-import React ,{useEffect} from 'react'
+import React, { useEffect } from 'react'
 import { useLocation, Navigate, Outlet } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useGetProfileQuery } from './authApi'
 import type { RootState } from '../../app/store'
-import { Box, CircularProgress } from '@mui/material'  // ← 引入 MUI 组件
-import { useAppDispatch,useAppSelector  } from '../../app/hooks'
-import { setUser } from './authSlice'
+import { Box, CircularProgress } from '@mui/material'
+import { useAppDispatch } from '../../app/hooks'
+import { setUser, logoutLocal } from './authSlice'
+import { clearAllCookies } from '../../lib/auth-utils'
+
 const RequireAuth: React.FC = () => {
   const location = useLocation()
-  const profile = useSelector((state: RootState) => state.auth.profile)
+  const dispatch = useAppDispatch()
+  const user = useSelector((state: RootState) => state.auth.user)
+  
+  // 智能验证cookie：如果已有有效用户信息，则跳过API调用
   const {
+    data: profileData,
     isLoading,
     isError,
   } = useGetProfileQuery(undefined, {
-    skip: Boolean(profile),
+    // 只在需要时重新验证cookie
+    refetchOnMountOrArgChange: 300, // 5分钟内不重复验证
+    // 如果已有用户信息，跳过API调用
+    skip: Boolean(user),
   })
 
+  // 处理用户状态同步
+  useEffect(() => {
+    if (profileData) {
+      // 如果cookie验证成功，但localStorage中的用户信息不匹配，需要更新
+      if (!user || user.id !== profileData.id) {
+        console.log('用户状态不匹配，更新Redux状态:', { 
+          localStorage: user?.id, 
+          cookie: profileData.id 
+        })
+        dispatch(setUser(profileData))
+      }
+    }
+  }, [profileData, user, dispatch])
 
+  // 显示加载状态
   if (isLoading) {
     return (
       <Box
@@ -25,7 +48,7 @@ const RequireAuth: React.FC = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',      // 或者根据你的布局改成 100% 等
+          height: '100vh',
           bgcolor: 'background.default',
         }}
       >
@@ -34,7 +57,18 @@ const RequireAuth: React.FC = () => {
     )
   }
 
-  if (!profile || isError) {
+  // 如果获取用户信息失败，说明用户未登录或 cookie 已过期
+  if (isError) {
+    // 清理可能残留的无效cookie和localStorage
+    console.log('Cookie验证失败，清理所有认证状态')
+    clearAllCookies();
+    dispatch(logoutLocal());
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // 如果没有用户信息且不在加载中
+  if (!user && !isLoading) {
+    // 如果cookie验证已完成但没有用户信息，跳转到登录
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

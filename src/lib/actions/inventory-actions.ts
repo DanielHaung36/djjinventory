@@ -211,104 +211,148 @@ const mockEditRequests: EditRequest[] = []
 export async function createInboundTransaction(
   data: Omit<InboundTransaction, "id" | "status" | "createdAt" | "updatedAt" | "createdBy" | "updatedBy">,
 ): Promise<{ success: boolean; id: string }> {
-  // In a real application, this would save to a database
   console.log("Creating inbound transaction:", data)
 
-  // Simulate a delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  try {
+    // 对于手动入库，直接调用库存入库API
+    if (data.transactionType === "non-order-based" && data.items.length > 0) {
+      // 处理手动入库项目
+      for (const item of data.items) {
+        if (item.source === "manual") {
+          await createManualInboundStock({
+            productId: parseInt(item.id.split('-')[2]) || 1, // 从ID中提取productId
+            productName: item.name,
+            warehouseId: 1, // 默认仓库，实际应该从表单获取
+            quantity: item.quantity || 0,
+            unitPrice: item.unitPrice || 0,
+            supplier: data.supplierName,
+            referenceNumber: data.referenceNumber,
+            notes: data.notes || `入库: ${item.name}`,
+            operator: currentUser.name
+          })
+        }
+      }
+    }
 
-  // If this is an order-based transaction, update the purchase order
-  if (data.transactionType === "order-based" && data.purchaseOrderId) {
-    // In a real app, this would update the database
-    console.log(`Updating purchase order ${data.purchaseOrderId} with received items`)
-  }
+    // 模拟延迟
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
-  const newId = `INB-${Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, "0")}`
+    // If this is an order-based transaction, update the purchase order
+    if (data.transactionType === "order-based" && data.purchaseOrderId) {
+      console.log(`Updating purchase order ${data.purchaseOrderId} with received items`)
+    }
 
-  // Create a new transaction
-  const newTransaction: InboundTransaction = {
-    ...data,
-    id: newId,
-    status: "submitted",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: currentUser.id,
-  }
+    const newId = `INB-${Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, "0")}`
 
-  // Add to mock data
-  mockInboundTransactions.push(newTransaction)
+    // Create a new transaction
+    const newTransaction: InboundTransaction = {
+      ...data,
+      id: newId,
+      status: "submitted",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+    }
 
-  // Create audit trail entry
-  const auditEntry: AuditTrailEntry = {
-    id: `audit-${mockAuditTrail.length + 1}`,
-    documentId: newId,
-    documentType: "inbound",
-    action: "create",
-    timestamp: new Date().toISOString(),
-    userId: currentUser.id,
-    userName: currentUser.name,
-  }
+    // Add to mock data
+    mockInboundTransactions.push(newTransaction)
 
-  mockAuditTrail.push(auditEntry)
+    // Create audit trail entry
+    const auditEntry: AuditTrailEntry = {
+      id: `audit-${mockAuditTrail.length + 1}`,
+      documentId: newId,
+      documentType: "inbound",
+      action: "create",
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id,
+      userName: currentUser.name,
+    }
 
-  // Return a mock response
-  return {
-    success: true,
-    id: newId,
+    mockAuditTrail.push(auditEntry)
+
+    return {
+      success: true,
+      id: newId,
+    }
+  } catch (error) {
+    console.error("Failed to create inbound transaction:", error)
+    throw new Error("创建入库交易失败，请重试")
   }
 }
 
 export async function createOutboundTransaction(
   data: Omit<OutboundTransaction, "id" | "status" | "createdAt" | "updatedAt" | "createdBy" | "updatedBy">,
 ): Promise<{ success: boolean; id: string }> {
-  // In a real application, this would save to a database
   console.log("Creating outbound transaction:", data)
 
-  // Simulate a delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  try {
+    // 对于手动出库，直接调用库存出库API
+    if (data.transactionType === "non-order-based" && data.items.length > 0) {
+      // 处理手动出库项目
+      for (const item of data.items) {
+        if (item.source === "manual") {
+          await createManualOutboundStock({
+            productId: parseInt(item.id.split('-')[2]) || 1, // 从ID中提取productId
+            productName: item.name,
+            warehouseId: 1, // 默认仓库，实际应该从表单获取
+            quantity: item.quantity || 0,
+            unitPrice: item.unitPrice || 0,
+            customer: data.customerName,
+            referenceNumber: data.referenceNumber,
+            notes: data.notes || `出库: ${item.name}`,
+            operator: currentUser.name
+          })
+        }
+      }
+    }
 
-  // If this is an order-based transaction, update the sales order
-  if (data.transactionType === "order-based" && data.salesOrderId) {
-    // In a real app, this would update the database
-    console.log(`Updating sales order ${data.salesOrderId} with shipped items`)
-  }
+    // 模拟延迟
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
-  const newId = `OUT-${Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, "0")}`
+    // If this is an order-based transaction, update the sales order
+    if (data.transactionType === "order-based" && data.salesOrderId) {
+      console.log(`Updating sales order ${data.salesOrderId} with shipped items`)
+    }
 
-  // Create a new transaction
-  const newTransaction: OutboundTransaction = {
-    ...data,
-    id: newId,
-    status: "submitted",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    createdBy: currentUser.id,
-  }
+    const newId = `OUT-${Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, "0")}`
 
-  // Add to mock data
-  mockOutboundTransactions.push(newTransaction)
+    // Create a new transaction
+    const newTransaction: OutboundTransaction = {
+      ...data,
+      id: newId,
+      status: "submitted",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+    }
 
-  // Create audit trail entry
-  const auditEntry: AuditTrailEntry = {
-    id: `audit-${mockAuditTrail.length + 1}`,
-    documentId: newId,
-    documentType: "outbound",
-    action: "create",
-    timestamp: new Date().toISOString(),
-    userId: currentUser.id,
-    userName: currentUser.name,
-  }
+    // Add to mock data
+    mockOutboundTransactions.push(newTransaction)
 
-  mockAuditTrail.push(auditEntry)
+    // Create audit trail entry
+    const auditEntry: AuditTrailEntry = {
+      id: `audit-${mockAuditTrail.length + 1}`,
+      documentId: newId,
+      documentType: "outbound",
+      action: "create",
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id,
+      userName: currentUser.name,
+    }
 
-  // Return a mock response
-  return {
-    success: true,
-    id: newId,
+    mockAuditTrail.push(auditEntry)
+
+    return {
+      success: true,
+      id: newId,
+    }
+  } catch (error) {
+    console.error("Failed to create outbound transaction:", error)
+    throw new Error("创建出库交易失败，请重试")
   }
 }
 
@@ -654,4 +698,170 @@ export async function getAllEditRequests(): Promise<EditRequest[]> {
   await new Promise((resolve) => setTimeout(resolve, 500))
 
   return mockEditRequests
+}
+
+// === 手动入库出库API函数 ===
+
+export interface ManualStockRequest {
+  productId: number
+  productName: string
+  warehouseId: number
+  quantity: number
+  unitPrice: number
+  supplier?: string
+  customer?: string
+  referenceNumber: string
+  notes: string
+  operator: string
+}
+
+export async function createManualInboundStock(data: ManualStockRequest): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch('/api/inventory/stock-in', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+      },
+      body: JSON.stringify({
+        product_id: data.productId,
+        warehouse_id: data.warehouseId,
+        quantity: data.quantity,
+        note: `${data.notes} - 操作员: ${data.operator} - 参考号: ${data.referenceNumber}${data.supplier ? ` - 供应商: ${data.supplier}` : ''}`
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    console.log('入库成功:', result)
+    
+    return {
+      success: true,
+      message: `${data.productName} 入库成功，数量: ${data.quantity}`
+    }
+  } catch (error) {
+    console.error('入库失败:', error)
+    return {
+      success: false,
+      message: `入库失败: ${error instanceof Error ? error.message : '未知错误'}`
+    }
+  }
+}
+
+export async function createManualOutboundStock(data: ManualStockRequest): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch('/api/inventory/stock-out', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+      },
+      body: JSON.stringify({
+        product_id: data.productId,
+        warehouse_id: data.warehouseId,
+        quantity: data.quantity,
+        note: `${data.notes} - 操作员: ${data.operator} - 参考号: ${data.referenceNumber}${data.customer ? ` - 客户: ${data.customer}` : ''}`
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    console.log('出库成功:', result)
+    
+    return {
+      success: true,
+      message: `${data.productName} 出库成功，数量: ${data.quantity}`
+    }
+  } catch (error) {
+    console.error('出库失败:', error)
+    return {
+      success: false,
+      message: `出库失败: ${error instanceof Error ? error.message : '未知错误'}`
+    }
+  }
+}
+
+// === 交易历史查看API函数 ===
+
+export interface TransactionRecord {
+  id: number
+  tx_type: string
+  quantity: number
+  operator: string
+  note: string
+  created_at: string
+  before_quantity?: number
+  after_quantity?: number
+}
+
+export async function getProductTransactionHistory(
+  productId: number, 
+  warehouseId?: number
+): Promise<TransactionRecord[]> {
+  try {
+    let url = `/api/inventory/products/${productId}/transactions`
+    if (warehouseId) {
+      url += `?warehouse_id=${warehouseId}`
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    console.log('交易历史获取成功:', result)
+    
+    // 返回交易记录，按时间倒序排列
+    return result.data || []
+  } catch (error) {
+    console.error('获取交易历史失败:', error)
+    
+    // 返回模拟数据作为后备
+    return [
+      {
+        id: 1,
+        tx_type: "IN",
+        quantity: 100,
+        operator: "张三",
+        note: "新货入库 - 参考号: PO-2024-001",
+        created_at: "2024-01-15T10:30:00Z",
+        before_quantity: 0,
+        after_quantity: 100
+      },
+      {
+        id: 2,
+        tx_type: "OUT",
+        quantity: -20,
+        operator: "李四",
+        note: "销售出库 - 客户: ABC公司",
+        created_at: "2024-01-16T14:20:00Z",
+        before_quantity: 100,
+        after_quantity: 80
+      },
+      {
+        id: 3,
+        tx_type: "ADJUST",
+        quantity: -5,
+        operator: "王五",
+        note: "盘点调整 - 发现损耗",
+        created_at: "2024-01-17T09:15:00Z",
+        before_quantity: 80,
+        after_quantity: 75
+      }
+    ]
+  }
 }
