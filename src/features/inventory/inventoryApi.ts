@@ -1,6 +1,5 @@
 // src/features/inventory/inventoryApi.ts
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { RootState } from '../../app/store';
 import {
   type InventoryItem,
   type InventoryStats,
@@ -169,12 +168,7 @@ export const inventoryApi = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: fetchBaseQuery({
     baseUrl: '/api/inventory',
-    prepareHeaders: (headers, { getState }) => {
-      // 添加认证token
-      const token = (getState() as RootState).auth.token;
-      if (token) {
-        headers.set('authorization', `Bearer ${token}`);
-      }
+    prepareHeaders: (headers) => {
       headers.set('content-type', 'application/json');
       return headers;
     },
