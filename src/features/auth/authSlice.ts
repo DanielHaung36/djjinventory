@@ -85,27 +85,7 @@ interface AuthState {
   profile:any
 }
 
-// 从localStorage读取初始状态
-const loadFromLocalStorage = () => {
-  try {
-    const user = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    return {
-      token: token || null,
-      user: user ? JSON.parse(user) : null,
-      profile: null
-    };
-  } catch (error) {
-    console.error('Error loading from localStorage:', error);
-    return {
-      token: null,
-      user: null,
-      profile: null
-    };
-  }
-};
-
-const initialState: AuthState = loadFromLocalStorage();
+const initialState: AuthState = { token: null, user: null, profile: null };
 
 
 const authSlice = createSlice({
@@ -117,31 +97,15 @@ const authSlice = createSlice({
             state.token = null
             state.user  = null
             state.profile = null
-            // 清理localStorage
-            localStorage.removeItem('user')
-            localStorage.removeItem('token')
         },
         setUser(state, action: PayloadAction<User>) {
             state.user = action.payload
-            // 同步保存到localStorage
-            localStorage.setItem('user', JSON.stringify(action.payload))
         },
         // 专门用于处理登录的action，确保完全替换用户状态
         loginSuccess(state, action: PayloadAction<LoginResponse>) {
-            // 先清理所有旧状态
-            state.token = null
-            state.user = null
-            state.profile = null
-            localStorage.removeItem('token')
-            localStorage.removeItem('user')
-            
-            // 设置新状态
             state.token = action.payload.token
             state.user = action.payload.user
-            
-            // 保存到localStorage
-            localStorage.setItem('token', action.payload.token)
-            localStorage.setItem('user', JSON.stringify(action.payload.user))
+            state.profile = null
         },
     },
     extraReducers: (builder) => {
@@ -157,15 +121,10 @@ const authSlice = createSlice({
                     state.token = null
                     state.user = null
                     state.profile = null
-                    localStorage.removeItem('token')
-                    localStorage.removeItem('user')
                     
                     // 设置新的状态
                     state.token = payload.token
                     state.user  = payload.user
-                    // 保存新的数据到localStorage
-                    localStorage.setItem('token', payload.token)
-                    localStorage.setItem('user', JSON.stringify(payload.user))
                 }
             }
         )
@@ -177,13 +136,9 @@ const authSlice = createSlice({
                 state.token = null
                 state.user = null
                 state.profile = null
-                localStorage.removeItem('token')
-                localStorage.removeItem('user')
                 
                 // 设置新的状态
                 state.user = payload.user
-                // 同步保存到localStorage
-                localStorage.setItem('user', JSON.stringify(payload.user))
             }
         )
 
@@ -195,7 +150,6 @@ const authSlice = createSlice({
                 // 如果Redux中没有user，但profile有值，说明是从cookie恢复的
                 if (!state.user && payload) {
                     state.user = payload
-                    localStorage.setItem('user', JSON.stringify(payload))
                 }
             }
         )
