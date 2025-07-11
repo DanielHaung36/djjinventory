@@ -721,7 +721,6 @@ export async function createManualInboundStock(data: ManualStockRequest): Promis
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
       },
       body: JSON.stringify({
         product_id: data.productId,
@@ -757,7 +756,6 @@ export async function createManualOutboundStock(data: ManualStockRequest): Promi
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
       },
       body: JSON.stringify({
         product_id: data.productId,
@@ -814,7 +812,6 @@ export async function getProductTransactionHistory(
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
       },
     })
 
