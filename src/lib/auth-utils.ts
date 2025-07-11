@@ -15,7 +15,7 @@ export const performLogout = async (dispatch: AppDispatch) => {
     // 即使后端失败，也要清理前端状态
   }
   
-  // 2. 清理Redux状态（这也会清理localStorage）
+  // 2. 清理Redux状态
   dispatch(logoutLocal());
   
   // 3. 清理RTK Query缓存
@@ -24,9 +24,7 @@ export const performLogout = async (dispatch: AppDispatch) => {
   // 4. 手动清理可能残留的cookie（作为备选方案）
   clearAllCookies();
   
-  // 5. 确保localStorage完全清理
-  localStorage.removeItem('user');
-  localStorage.removeItem('token');
+  // 5. 登出完成，Redux 状态和 cookie 已清理
 };
 
 /**
