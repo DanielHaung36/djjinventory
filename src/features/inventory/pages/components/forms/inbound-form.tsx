@@ -36,6 +36,8 @@ const formSchema = z.object({
   // Modified to allow both transaction types simultaneously
   transactionTypes: z.array(z.enum(["order-based", "non-order-based"])).min(1, "Select at least one transaction type"),
   purchaseOrderIds: z.array(z.string()).optional(),
+  regionId: z.string().min(1, "Region is required"),
+  warehouseId: z.string().min(1, "Warehouse is required"),
   supplierName: z.string().min(1, "Supplier is required"),
   referenceNumber: z.string().min(1, "Reference number is required"),
   receiptDate: z.string().min(1, "Receipt date is required"),
@@ -65,6 +67,8 @@ export function InboundForm() {
     defaultValues: {
       transactionTypes: ["non-order-based"],
       purchaseOrderIds: [],
+      regionId: "",
+      warehouseId: "",
       supplierName: "",
       referenceNumber: "",
       receiptDate: new Date().toISOString().split("T")[0],
@@ -147,7 +151,7 @@ export function InboundForm() {
       })
       return
     }
-
+    console.log(values);
     try {
       const result = await createInboundTransaction({
         ...values,

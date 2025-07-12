@@ -1,5 +1,5 @@
 // src/features/auth/RequireAuth.tsx
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useLocation, Navigate, Outlet } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useGetProfileQuery } from './authApi'
@@ -14,28 +14,37 @@ const RequireAuth: React.FC = () => {
   const dispatch = useAppDispatch()
   const user = useSelector((state: RootState) => state.auth.user)
   
-  // 智能验证cookie：如果已有有效用户信息，则跳过API调用
+  // 用于跟踪上次验证的用户ID，避免重复验证
+  const lastValidatedUserId = useRef<number | null>(null)
+  
+  // ✅ 智能验证cookie：优化跳过逻辑，确保用户状态一致性
   const {
     data: profileData,
     isLoading,
     isError,
+    refetch,
   } = useGetProfileQuery(undefined, {
     // 只在需要时重新验证cookie
     refetchOnMountOrArgChange: 300, // 5分钟内不重复验证
-    // 如果已有用户信息，跳过API调用
-    skip: Boolean(user),
+    // ✅ 修复：避免循环依赖，使用ref跟踪验证状态
+    skip: Boolean(user && lastValidatedUserId.current === user.id),
   })
 
   // 处理用户状态同步
   useEffect(() => {
     if (profileData) {
-      // 如果cookie验证成功，但localStorage中的用户信息不匹配，需要更新
+      // 记录已验证的用户ID
+      lastValidatedUserId.current = profileData.id
+      
+      // ✅ 如果cookie验证成功，但Redux中的用户信息不匹配，需要更新
       if (!user || user.id !== profileData.id) {
-        console.log('用户状态不匹配，更新Redux状态:', { 
-          localStorage: user?.id, 
+        console.log('RequireAuth: 用户状态不匹配，更新Redux状态:', { 
+          redux: user?.id, 
           cookie: profileData.id 
         })
         dispatch(setUser(profileData))
+      } else {
+        console.log('RequireAuth: 用户状态已同步:', profileData.email);
       }
     }
   }, [profileData, user, dispatch])
@@ -59,8 +68,8 @@ const RequireAuth: React.FC = () => {
 
   // 如果获取用户信息失败，说明用户未登录或 cookie 已过期
   if (isError) {
-    // 清理可能残留的无效cookie和localStorage
-    console.log('Cookie验证失败，清理所有认证状态')
+    // ✅ 清理可能残留的无效cookie和localStorage
+    console.log('RequireAuth: Cookie验证失败，清理所有认证状态')
     clearAllCookies();
     dispatch(logoutLocal());
     return <Navigate to="/login" state={{ from: location }} replace />

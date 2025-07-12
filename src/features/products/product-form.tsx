@@ -716,7 +716,7 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
                             <img
                               src={image.url || "/placeholder.svg"}
                               alt={image.alt || viewLabel}
-                              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              className="w-full h-auto object-contain transition-transform duration-200 group-hover:scale-105"
                               onError={(e) => {
                                 console.error("Image failed to load:", image.url)
                                 e.currentTarget.src = "/placeholder.svg?height=200&width=300&text=Failed+to+load"

@@ -110,45 +110,45 @@ const authSlice = createSlice({
     },
     extraReducers: (builder) => {
         // —— 当 login mutation 成功时，把返回的 token/user 存进去 ——
-        // 现在主要在LoginPage中手动处理，这里作为备选方案
+        // 总是更新状态，确保数据一致性
         builder.addMatcher(
             authApi.endpoints.login.matchFulfilled,
             (state, { payload }: PayloadAction<LoginResponse>) => {
                 console.log('Login API succeeded:', payload);
-                // 如果没有通过手动dispatch处理，这里作为备选
-                if (!state.user) {
-                    // 先清理旧的状态
-                    state.token = null
-                    state.user = null
-                    state.profile = null
-                    
-                    // 设置新的状态
-                    state.token = payload.token
-                    state.user  = payload.user
-                }
+                // ✅ 总是更新状态，不要有条件判断，确保完全替换旧状态
+                state.token = payload.token
+                state.user  = payload.user
+                state.profile = null // 清理旧的profile数据
+                console.log('authSlice: 状态已更新至新用户:', payload.user?.email);
             }
         )
         // —— 当 register mutation 成功时，同样存 token/user ——
         builder.addMatcher(
             authApi.endpoints.register.matchFulfilled,
             (state, { payload }: PayloadAction<RegisterResponse>) => {
-                // 先清理旧的状态
-                state.token = null
-                state.user = null
-                state.profile = null
-                
-                // 设置新的状态
+                // ✅ 清理旧状态并设置新状态
+                state.token = payload.token
                 state.user = payload.user
+                state.profile = null
+                console.log('authSlice: 注册成功，状态已更新:', payload.user?.email);
             }
         )
 
-        // 你也可以根据需要，对其他接口做缓存失效、清理之类的处理
+        // 处理Cookie验证成功的情况
         builder.addMatcher(
             authApi.endpoints.getProfile.matchFulfilled,
             (state, { payload }) => { 
                 state.profile = payload
                 // 如果Redux中没有user，但profile有值，说明是从cookie恢复的
                 if (!state.user && payload) {
+                    state.user = payload
+                    console.log('authSlice: 从Cookie恢复用户状态:', payload.email);
+                } else if (state.user && payload && state.user.id !== payload.id) {
+                    // ✅ 如果Cookie中的用户和Redux中的用户不匹配，更新为Cookie中的用户
+                    console.log('authSlice: 检测到用户不匹配，更新状态:', { 
+                        redux: state.user.id, 
+                        cookie: payload.id 
+                    });
                     state.user = payload
                 }
             }

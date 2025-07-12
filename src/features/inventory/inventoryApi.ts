@@ -169,17 +169,17 @@ export const inventoryApi = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: fetchBaseQuery({
     baseUrl: '/api/inventory',
-    prepareHeaders: (headers, { getState }) => {
+    prepareHeaders: (headers) => {
       // 添加认证token
-      const token = (getState() as RootState).auth.token;
-      if (token) {
-        headers.set('authorization', `Bearer ${token}`);
-      }
+      // const token = (getState() as RootState).auth.token;
+      // if (token) {
+      //   headers.set('authorization', `Bearer ${token}`);
+      // }
       headers.set('content-type', 'application/json');
       return headers;
     },
   }),
- tagTypes: ['Inventory', 'Stock', 'Reservation', 'Transaction', 'Region'],
+ tagTypes: ['Inventory', 'Stock', 'Reservation', 'Transaction', 'Region','TodayStats'],
   endpoints: (builder) => ({
     
     // ===== 库存查询接口 =====
@@ -497,6 +497,39 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
       query: () => '/regions',
       providesTags: ['Region'],
     }),
+
+
+      scanIn: builder.mutation<{ success: boolean; inventory: RegionInventoryResponse }, { code: string; format?: string; quantity: number }>({
+            query: ({ code, format, quantity }) => ({
+                url: "/inventory/scan-in",
+                method: "POST",
+                body: { code, format, quantity },
+            }),
+            invalidatesTags: [{ type: "Inventory", id: "LIST" }],
+        }),
+        scanOut: builder.mutation<{ success: boolean; inventory: RegionInventoryResponse }, { code: string; format?: string; quantity: number }>({
+            query: ({ code, format, quantity }) => ({
+                url: "/inventory/scan-out",
+                method: "POST",
+                body: { code, format, quantity },
+            }),
+            invalidatesTags: [{ type: "Inventory", id: "LIST" }],
+        }),
+
+            getInventoryByCode: builder.query<RegionInventoryResponse, string>({
+            query: (code) => `/inventory/by-code/${code}`,
+            providesTags: (result, error, code) => [{ type: 'Inventory', id: code }],
+            }),
+
+        getTodayStats: builder.query<
+      { inbound: number; outbound: number },
+      void
+    >({
+      query: () => '/inventory/stats/today',
+      // 如果你想用 RTK Query 缓存并且在某些操作后失效，可以打 tag，
+      // 这里简单不打 tag 也没问题
+      providesTags: [{ type: 'TodayStats', id: 'TODAY' }],
+    }),
   }),
 });
 
@@ -564,4 +597,9 @@ export const {
   useGetInventoryItemsQuery,
   useGetInventoryStatsQuery,
   useGetRegionsWithWarehousesQuery,
+
+  useScanInMutation,
+  useScanOutMutation,
+  useGetInventoryByCodeQuery,
+  useGetTodayStatsQuery,
 } = inventoryApi;

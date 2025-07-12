@@ -57,22 +57,42 @@ function InventoryOverviewPageNew() {
   const navigate = useNavigate()
   
   // === 用户权限信息 ===
-  const currentUser = useAppSelector(state => {
-    if (state.auth.profile){
-       return  state.auth.profile
-    }
-  });
+  const currentUser = useAppSelector(state => state.auth.profile.user);
+  
   // === 权限判断 ===
   const canViewAllRegions = useMemo(() => {
-    console.log('权限检查:', { 
+    console.log('🔍 权限检查 (从profile):', { 
       currentUser, 
       role: currentUser?.role,
-      hasRole: !!currentUser?.role 
+      roles: currentUser?.roles,
+      hasRole: !!currentUser?.role,
+      userId: currentUser?.id,
+      email: currentUser?.email
     })
-    if (!currentUser?.role) return false
+    
+    if (!currentUser) return false
+    
+    // 从profile的role字段判断
+    let userRole = currentUser.role
+    
+    // 如果没有直接的role字段，从roles数组中获取
+    if (!userRole && currentUser.roles && currentUser.roles.length > 0) {
+      userRole = currentUser.roles[0]?.Name || currentUser.roles[0]?.name
+    }
+    
+    if (!userRole) return false
+    
     const allowedRoles = ["admin", "financial_leader", "财务负责人", "管理员", "超级管理员"]
-    const hasPermission = allowedRoles.includes(currentUser.role)
-    console.log('权限结果:', { role: currentUser.role, hasPermission })
+    const hasPermission = allowedRoles.includes(userRole)
+    
+    console.log('✅ 权限结果 (从profile):', { 
+      userRole, 
+      hasPermission,
+      userId: currentUser.id,
+      email: currentUser.email,
+      dataSource: 'profile'
+    })
+    
     return hasPermission
   }, [currentUser])
 
@@ -114,18 +134,37 @@ function InventoryOverviewPageNew() {
       params.low_stock = true
     }
     
+    console.log('🔍 库存查询参数:', {
+      canViewAllRegions,
+      selectedRegion,
+      selectedWarehouse,
+      params,
+      userRole: currentUser?.role,
+      userId: currentUser?.id
+    });
+    
     return params
-  }, [selectedRegion, selectedWarehouse, filterMode, page, pageSize, canViewAllRegions])
+  }, [selectedRegion, selectedWarehouse, filterMode, page, pageSize, canViewAllRegions, currentUser])
 
   // 获取地区数据
-  const { data: regionsResponse, isLoading: regionsLoading } = useGetRegionsWithWarehousesQuery()
+  const { data: regionsResponse, isLoading: regionsLoading, error: regionsError, refetch: refetchRegions } = useGetRegionsWithWarehousesQuery()
+  
+  // 调试：监听地区数据变化
+  useEffect(() => {
+    console.log('📍 地区数据变化监听:', {
+      regionsLoading,
+      regionsCount: regionsResponse?.data?.length || 0,
+      regionsError,
+      timestamp: new Date().toISOString()
+    });
+  }, [regionsResponse, regionsLoading, regionsError])
   
   // 获取库存数据
-  const { data: inventoryResponse, isLoading: inventoryLoading, error: inventoryError } = useGetInventoryItemsQuery(queryParams)
-  console.log(inventoryResponse);
+  const { data: inventoryResponse, isLoading: inventoryLoading, error: inventoryError, refetch: refetchInventory } = useGetInventoryItemsQuery(queryParams)
+  console.log('📦 库存数据响应:', inventoryResponse);
   
   // 获取统计数据
-  const { data: statsResponse, isLoading: statsLoading } = useGetInventoryStatsQuery(queryParams)
+  const { data: statsResponse, isLoading: statsLoading, refetch: refetchStats } = useGetInventoryStatsQuery(queryParams)
   
   // 提取数据
   const regions = regionsResponse?.data || []
@@ -152,29 +191,44 @@ function InventoryOverviewPageNew() {
 
   // === 用户权限初始化地区选择 ===
   useEffect(() => {
-    if (!regionsLoading && regions.length > 0 && !selectedRegion) {
+    if (!regionsLoading && regions.length > 0) {
       if (!canViewAllRegions) {
         // 普通用户：设置为用户地区的第一个地区ID
         const userRegionId = regions[0]?.id.toString()
-        if (userRegionId) {
-          console.log('普通用户初始化地区:', userRegionId)
+        if (userRegionId && selectedRegion !== userRegionId) {
+          console.log('🔄 普通用户初始化地区:', userRegionId)
           setSelectedRegion(userRegionId)
         }
       } else {
         // 高权限用户：设置为"all"
-        console.log('高权限用户初始化地区: all')
-        setSelectedRegion("all")
+        if (selectedRegion !== "all") {
+          console.log('🔄 高权限用户初始化地区: all')
+          setSelectedRegion("all")
+        }
       }
     }
   }, [canViewAllRegions, regions, regionsLoading, selectedRegion])
+  
+  // === 手动刷新地区数据 ===
+  const handleRefreshRegions = async () => {
+    console.log('🔄 手动刷新地区数据...');
+    try {
+      await refetchRegions();
+      console.log('✅ 地区数据刷新成功');
+    } catch (error) {
+      console.error('❌ 地区数据刷新失败:', error);
+    }
+  }
 
   // === 仓库联动逻辑 ===
   const availableWarehouses = useMemo(() => {
-    console.log('仓库联动调试:', { 
+    console.log('🏭 仓库联动调试:', { 
       canViewAllRegions, 
       selectedRegion, 
       regionsCount: regions.length,
-      userRole: currentUser?.role 
+      userRole: currentUser?.role,
+      userId: currentUser?.id,
+      regions: regions.map(r => ({ id: r.id, name: r.name, warehouseCount: r.warehouses?.length || 0 }))
     })
     
     if (!canViewAllRegions) {
@@ -187,7 +241,7 @@ function InventoryOverviewPageNew() {
           regionName: region.name
         }))
       )
-      console.log('普通用户可用仓库:', userWarehouses)
+      console.log('👤 普通用户可用仓库:', userWarehouses.map(w => ({ id: w.id, name: w.displayName, region: w.regionName })))
       return userWarehouses
     }
     
@@ -201,7 +255,7 @@ function InventoryOverviewPageNew() {
           regionName: region.name
         }))
       )
-      console.log('高权限用户-所有仓库:', allWarehouses)
+      console.log('👑 高权限用户-所有仓库:', allWarehouses.map(w => ({ id: w.id, name: w.displayName })))
       return allWarehouses
     }
     
@@ -212,7 +266,7 @@ function InventoryOverviewPageNew() {
       displayName: warehouse.name,
       regionName: region.name
     })) || []
-    console.log('高权限用户-指定地区仓库:', regionWarehouses)
+    console.log('👑 高权限用户-指定地区仓库:', regionWarehouses.map(w => ({ id: w.id, name: w.displayName, region: w.regionName })))
     return regionWarehouses
   }, [selectedRegion, regions, canViewAllRegions, currentUser])
 
@@ -757,6 +811,16 @@ function InventoryOverviewPageNew() {
             <CardTitle className="flex items-center gap-2 text-base">
               <MapPin className="h-5 w-5 text-gray-500" />
               地区和仓库筛选
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshRegions}
+                className="ml-auto"
+                disabled={regionsLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${regionsLoading ? 'animate-spin' : ''}`} />
+                刷新地区
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>

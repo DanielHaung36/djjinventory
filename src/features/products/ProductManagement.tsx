@@ -49,7 +49,7 @@ import {
 import ProductForm from "./product-form"
 import { getStatusBadge } from "../../utils/getStatusBadge"
 import { fa } from "zod/v4/locales"
-const ITEMS_PER_PAGE = 15
+const ITEMS_PER_PAGE = 20  // 每页显示数量
 
 export default function ProductManagement() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -67,54 +67,49 @@ export default function ProductManagement() {
 
   const { toast } = useToast()
 
-  // RTK Query hooks
+  // RTK Query hooks - 使用后端搜索和过滤
   const offset = (currentPage - 1) * ITEMS_PER_PAGE
   const limit = ITEMS_PER_PAGE
   const [isDeleted,setDelete]=useState(false)
-  const { data, isLoading } = useGetProductsQuery({ offset, limit })
+  
+  // 传递搜索参数到后端API
+  const { data, isLoading } = useGetProductsQuery({ 
+    offset, 
+    limit,
+    search: searchTerm,
+    category: categoryFilter,
+    status: statusFilter
+  })
+  
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation()
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation()
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation()
 
+  // 直接使用后端返回的数据，无需前端过滤
   const allProducts = data?.products ?? []
+  const totalProducts = data?.total ?? 0
 
-  // Filter and search logic
-  const filteredProducts = useMemo(() => {
-    return allProducts.filter((product) => {
-      const matchesSearch =
-        product.djj_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.name_en.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.name_cn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.supplier.toLowerCase().includes(searchTerm.toLowerCase())
-
-      const matchesCategory = categoryFilter === "all" || product.category === categoryFilter
-      const matchesStatus = statusFilter === "all" || product.status === statusFilter
-
-      return matchesSearch && matchesCategory && matchesStatus
-    })
-  }, [allProducts, searchTerm, categoryFilter, statusFilter])
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
-  console.log(filteredProducts.length);
+  // Pagination logic - 基于后端返回的总数
+  const totalPages = Math.ceil(totalProducts / ITEMS_PER_PAGE)
+  console.log(`显示产品数: ${allProducts.length}, 总产品数: ${totalProducts}`);
   
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-  }, [filteredProducts, currentPage])
+  // 直接使用后端返回的数据，不进行前端分页
+  const paginatedProducts = allProducts
 
   // Reset to first page when filters change
   useMemo(() => {
     setCurrentPage(1)
   }, [searchTerm, categoryFilter, statusFilter])
 
-  // Statistics
+  // Statistics - 使用后端返回的总数
   const stats = useMemo(() => {
-    const totalProducts = allProducts.length
-    const activeProducts = allProducts.filter((p) => p.status === "draft").length
-    const totalSales = allProducts.reduce((sum, p) => sum + p.total_sales, 0)
-    return { totalProducts, activeProducts, totalSales }
-  }, [allProducts])
+    // 使用后端返回的真实总产品数
+    const actualTotalProducts = totalProducts
+    // 当前页面的已发布产品数（这只是当前页面的统计）
+    const publishedProducts = allProducts.filter((p) => p.status === "published").length
+    const totalSales = allProducts.reduce((sum, p) => sum + (p.total_sales || 0), 0)
+    return { totalProducts: actualTotalProducts, activeProducts: publishedProducts, totalSales }
+  }, [allProducts, totalProducts])
 
 //   const getStatusBadge = (status: Product["status"]) => {
 //     const variants = {
@@ -207,7 +202,7 @@ export default function ProductManagement() {
                 <img
                   src={primaryImage.url || "/placeholder.svg?height=144&width=192"}
                   alt={primaryImage.alt}
-                  className="w-48 h-36 object-cover rounded-lg border shadow-sm"
+                  className="w-48 h-36 object-contain rounded-lg border shadow-sm "
                 />
               </div>
             )}
@@ -389,7 +384,7 @@ export default function ProductManagement() {
                       <img
                         src={image.url || "/placeholder.svg?height=200&width=300"}
                         alt={image.alt}
-                        className="w-full h-48 object-cover"
+                        className="w-full h-48 object-contain"
                         onError={(e) => {
                           e.currentTarget.src = "/placeholder.svg?height=200&width=300"
                         }}
@@ -536,7 +531,7 @@ export default function ProductManagement() {
         "Remarks",
       ]
 
-      const csvData = filteredProducts.map((product) => [
+      const csvData = allProducts.map((product) => [
         product.djj_code,
         product.status,
         product.supplier,
@@ -582,7 +577,7 @@ export default function ProductManagement() {
 
       toast({
         title: "Export Successful",
-        description: `Exported ${filteredProducts.length} products to CSV file.`,
+        description: `Exported ${allProducts.length} products to CSV file.`,
       })
     } catch (error) {
       toast({
@@ -920,7 +915,7 @@ export default function ProductManagement() {
                         <img
                           src={primaryImage.url || "/placeholder.svg?height=48&width=64"}
                           alt={primaryImage.alt}
-                          className="w-16 h-12 object-cover rounded border"
+                          className="w-16 h-12 object-contain rounded border"
                           onError={(e) => {
                             e.currentTarget.src = "/placeholder.svg?height=48&width=64"
                           }}
@@ -996,7 +991,7 @@ export default function ProductManagement() {
           <div className="flex items-center justify-between space-x-2 py-4">
             <div className="text-sm text-muted-foreground">
               Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
-              {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} products
+              {Math.min(currentPage * ITEMS_PER_PAGE, totalProducts)} of {totalProducts} products
             </div>
             <div className="flex items-center space-x-2">
               <Button

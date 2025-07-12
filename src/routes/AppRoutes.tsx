@@ -46,7 +46,9 @@ import KnowledgeBasePage from "../features/knowledge/page";
 import UserPermissionEditor from "../features/setting/Rbac";
 import Team from "../features/user";
 import Form from "../features/user/components/Form";
-
+import ScanInPage from '../features/inventory/scan-in/page.tsx';
+import ScanOutPage from '../features/inventory/scan-out/page.tsx';
+import MobileMenu from '../features/mobile/Mobile.tsx';
 
 export default function AppRoutes() {
   return (
@@ -68,7 +70,9 @@ export default function AppRoutes() {
           <Route element={<AppLayout />}>
             {/* 默认重定向 */}
             <Route index element={<Navigate to="dashboard" replace />} />
-
+         <Route path="/mobile-menu" element= {<MobileMenu/>}/>
+          <Route path="/inventory/scan-in" element= {<ScanInPage />}/>
+          <Route path="/inventory/scan-out" element= {<ScanOutPage/>}/>
             {/* 一级路由 */}
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="quotes" >

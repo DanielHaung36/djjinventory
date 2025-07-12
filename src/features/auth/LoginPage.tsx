@@ -6,11 +6,12 @@ import {
   Container, Box, TextField, Button, Typography, Link, Checkbox, FormControlLabel, Divider, CircularProgress,
 } from '@mui/material';
 // import LarkIcon from '@mui/icons-material'; // 这里用一个占位图标，替换成你自己的 Lark 图标
-import { useLoginMutation } from "./authApi.ts";
+import { useLoginMutation, authApi } from "./authApi.ts";
 import { useToast } from "@/hooks/use-toast"
 import { useAppSelector, useAppDispatch } from "@/app/hooks"
 import { loginSuccess, logoutLocal } from "./authSlice"
 import { useLogoutMutation } from "./authApi"
+import { resetAllApiCaches, forceRefreshRegionsData } from "@/lib/auth-utils"
 const LoginPage: React.FC = () => {
   const { toast } = useToast()
   const navigate = useNavigate();
@@ -37,6 +38,9 @@ const LoginPage: React.FC = () => {
       console.log('强制登出失败:', err)
     }
     dispatch(logoutLocal());
+    // ✅ 清理所有API缓存，确保完全重置
+    resetAllApiCaches(dispatch);
+    console.log('强制登出：所有缓存已清理');
   };
 
 
@@ -51,12 +55,27 @@ const LoginPage: React.FC = () => {
       
       if (shouldClearOldState) {
         console.log('检测到用户切换，清理旧状态...', { from: currentUser.email, to: email })
+        
+        // ✅ 先清理前端状态，再尝试后端清理
+        dispatch(logoutLocal()); // 清理Redux状态
+        resetAllApiCaches(dispatch); // 清理所有RTK Query缓存
+        console.log('用户切换: 已清理前端状态和缓存');
+        
+        // 尝试调用后端登出，但不阻塞登录流程
         try {
-          await logout().unwrap(); // 调用后端清理cookie
+          await logout().unwrap(); 
+          console.log('后端登出成功');
         } catch (err) {
-          console.log('旧状态清理失败，继续登录:', err)
+          console.log('后端登出失败（可能cookie已过期），继续登录流程:', err)
+          // 强制清理cookie作为备选方案
+          document.cookie.split(";").forEach(c => {
+            const eqPos = c.indexOf("=");
+            const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+            if (name) {
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+            }
+          });
         }
-        dispatch(logoutLocal()); // 清理Redux和localStorage
       } else {
         console.log('同一用户登录，无需清理状态')
       }
@@ -66,8 +85,20 @@ const LoginPage: React.FC = () => {
       const response = await login({ email, password }).unwrap();
       console.log('Login response:', response);
       
-      // 步骤3: 设置新的认证状态
+      // 步骤3: 强制设置新的认证状态（确保完全替换旧状态）
       dispatch(loginSuccess(response));
+      console.log('Redux状态已更新，新用户:', response.user?.email);
+      
+      // 步骤4: 延迟刷新地区数据，确保Cookie完全生效
+      setTimeout(async () => {
+        try {
+          console.log('开始强制刷新地区数据...');
+          await forceRefreshRegionsData(dispatch);
+          console.log('已强制刷新地区数据，确保获取新用户权限');
+        } catch (error) {
+          console.error('刷新地区数据失败:', error);
+        }
+      }, 500); // 增加等待时间，确保Cookie完全生效
       
       // 登录成功提示
       toast({
@@ -76,11 +107,11 @@ const LoginPage: React.FC = () => {
         variant: "default",
       })
    
-      // 给Redux状态更新一点时间
+      // 给Redux状态更新和数据刷新更多时间
       setTimeout(() => {
         console.log('Navigating to:', from);
         navigate(from, { replace: true })
-      }, 100);
+      }, 1000); // 增加导航等待时间，确保所有数据都已刷新
     } catch (err) {
       // 错误信息会通过 `error` 反映到 UI
       console.error('登录失败:', err)
@@ -131,7 +162,7 @@ const LoginPage: React.FC = () => {
         </Typography>
 
         {/* 显示当前用户状态 */}
-        {user && (
+        {/* {user && (
           <Box sx={{ mb: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
             <Typography variant="body2" color="info.contrastText">
               当前已登录用户: {user.email || user.username}
@@ -144,7 +175,7 @@ const LoginPage: React.FC = () => {
               强制登出
             </Button>
           </Box>
-        )}
+        )} */}
 
         <Box component="form" onSubmit={handleSubmit} noValidate>
           <TextField

@@ -25,6 +25,7 @@
     "@tailwindcss/postcss": "^4.1.8",
     "@tailwindcss/vite": "^4.1.8",
     "@vitejs/plugin-basic-ssl": "^2.0.0",
+    "@zxing/library": "^0.21.3",
     "axios": "^1.9.0",
     "body-parser": "^2.2.0",
     "class-variance-authority": "^0.7.1",
