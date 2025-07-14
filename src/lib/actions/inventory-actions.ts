@@ -288,23 +288,81 @@ export async function createOutboundTransaction(
   console.log("Creating outbound transaction:", data)
 
   try {
-    // 对于手动出库，直接调用库存出库API
+    // 对于手动出库，使用新的手动出库API
     if (data.transactionType === "non-order-based" && data.items.length > 0) {
-      // 处理手动出库项目
-      for (const item of data.items) {
-        if (item.source === "manual") {
-          await createManualOutboundStock({
-            productId: parseInt(item.id.split('-')[2]) || 1, // 从ID中提取productId
-            productName: item.name,
-            warehouseId: 1, // 默认仓库，实际应该从表单获取
-            quantity: item.quantity || 0,
-            unitPrice: item.unitPrice || 0,
-            customer: data.customerName,
-            referenceNumber: data.referenceNumber,
-            notes: data.notes || `出库: ${item.name}`,
-            operator: currentUser.name
+      
+      // 处理文件上传
+      let files: string[] = []
+      if (data.files && data.files.length > 0) {
+        try {
+          console.log('📎 开始上传出库文件...', data.files.length, '个文件')
+          
+          // 上传每个文件
+          const uploadPromises = data.files.map(async (file: File) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('folder', 'outbound') // 使用outbound文件夹
+            
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+            })
+            
+            if (!response.ok) {
+              throw new Error(`文件上传失败: ${file.name}`)
+            }
+            
+            const result = await response.json()
+            return result.url || file.name // 返回服务器端文件URL
           })
+          
+          files = await Promise.all(uploadPromises)
+          console.log('✅ 出库文件上传完成:', files)
+        } catch (error) {
+          console.error('❌ 出库文件上传失败:', error)
+          // 即使文件上传失败，也继续处理出库操作
+          files = data.files.map((file: File) => file.name)
         }
+      }
+
+      // 使用新的手动出库API
+      const manualOutboundData = {
+        regionId: "1", // 默认地区，实际应该从表单获取
+        warehouseId: "1", // 默认仓库，实际应该从表单获取
+        referenceNumber: data.referenceNumber,
+        shipmentDate: new Date().toISOString().split('T')[0], // 今天的日期
+        customerName: data.customerName,
+        notes: data.notes || undefined,
+        items: data.items.filter(item => item.source === "manual").map(item => ({
+          product_id: parseInt(item.id.split('-')[2]) || 1, // 从ID中提取productId
+          product_name: item.name,
+          category: item.type || "未分类", // 统一使用category字段
+          quantity: item.quantity || 0,
+          unit_price: item.unitPrice || 0,
+          notes: `出库: ${item.name}`
+        })),
+        file_paths: files, // 直接传递文件路径数组
+      }
+
+      const response = await fetch('/api/inventory/manual-outbound', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(manualOutboundData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log('手动出库成功:', result)
+      
+      return {
+        success: true,
+        id: result.data?.reference_number || data.referenceNumber
       }
     }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -15,7 +15,11 @@ import { toast } from "@/components/ui/use-toast"
 import { FileUploader } from "../file-uploader"
 import { InboundItemsTable } from "../inbound-items-table"
 import { createInboundTransaction, getPurchaseOrders } from "@/lib/actions/inventory-actions"
+import { createManualInboundTransaction, type ManualInboundRequest } from "@/lib/actions/manual-inbound-actions"
 import type { Supplier, InboundItem, PurchaseOrder } from "@/lib/types"
+import type { Region, Warehouse } from "../../../types"
+import { useGetRegionsWithWarehousesQuery } from "../../../inventoryApi"
+import { useAppSelector } from "@/app/hooks"
 import { PlusCircle, FileText, ClipboardList, Tag, ListFilter, ShoppingCart, Loader2 } from "lucide-react"
 import { AddItemDialog } from "../dialogs/add-item-dialog"
 import { SelectPurchaseOrderDialog } from "../dialogs/select-purchase-order-dialog"
@@ -38,7 +42,7 @@ const formSchema = z.object({
   purchaseOrderIds: z.array(z.string()).optional(),
   regionId: z.string().min(1, "Region is required"),
   warehouseId: z.string().min(1, "Warehouse is required"),
-  supplierName: z.string().min(1, "Supplier is required"),
+  // supplierName: z.string().min(1, "Supplier is required"),
   referenceNumber: z.string().min(1, "Reference number is required"),
   receiptDate: z.string().min(1, "Receipt date is required"),
   notes: z.string().optional(),
@@ -61,6 +65,11 @@ export function InboundForm() {
   const [showPickingList, setShowPickingList] = useState(false)
   const [supplierNameInput, setSupplierNameInput] = useState("")
   const [referenceNumberInput, setReferenceNumberInput] = useState("")
+  const [regions, setRegions] = useState<Region[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [isLoadingRegions, setIsLoadingRegions] = useState(false)
+  const [isLoadingWarehouses, setIsLoadingWarehouses] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -80,6 +89,34 @@ export function InboundForm() {
   const transactionTypes = form.watch("transactionTypes")
   const isOrderBased = transactionTypes.includes("order-based")
   const isManualEntry = transactionTypes.includes("non-order-based")
+
+  // === 权限控制逻辑 ===
+  const canViewAllRegions = useMemo(() => {
+    if (!currentUser) return false
+    
+    // 从profile的role字段判断
+    let userRole = currentUser.role
+    
+    // 如果没有直接的role字段，从roles数组中获取
+    if (!userRole && currentUser.roles && currentUser.roles.length > 0) {
+      userRole = currentUser.roles[0]?.Name || currentUser.roles[0]?.name
+    }
+    
+    if (!userRole) return false
+    
+    const allowedRoles = ["admin", "financial_leader", "财务负责人", "管理员", "超级管理员"]
+    const hasPermission = allowedRoles.includes(userRole)
+    
+    console.log('✅ 入库表单权限检查:', { 
+      userRole, 
+      hasPermission,
+      userId: currentUser.id,
+      email: currentUser.email,
+      dataSource: 'profile'
+    })
+    
+    return hasPermission
+  }, [currentUser])
 
   // Update combined items whenever either source changes
   useEffect(() => {
@@ -106,9 +143,12 @@ export function InboundForm() {
       const newItem: InboundItem = {
         id: `manual-from-inventory-${productId}`,
         name: decodeURIComponent(productName),
+        category: "Parts", // 默认分类，用户可以在对话框中修改
+        qty: 1,
+        price: 0,
         sku: `SKU-${productId}`,
-        quantity: 1,
-        unitPrice: 0,
+        quantity: 1, // 兼容字段
+        unitPrice: 0, // 兼容字段
         location: "",
         lotNumber: "",
         expirationDate: "",
@@ -120,6 +160,79 @@ export function InboundForm() {
       setReferenceNumberInput(`${decodeURIComponent(productName)} - 入库`)
     }
   }, [searchParams])
+
+  // 获取当前用户信息
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const userData = await response.json()
+          setCurrentUser(userData)
+          console.log('✅ 获取用户信息成功:', userData)
+        }
+      } catch (error) {
+        console.error('Failed to fetch current user:', error)
+      }
+    }
+
+    fetchCurrentUser()
+  }, [])
+
+  // 加载地区和仓库数据
+  useEffect(() => {
+    const loadRegionsAndWarehouses = async () => {
+      try {
+        setIsLoadingRegions(true)
+        const response = await fetch('/api/inventory/regions')
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Regions API response:', data)
+          
+          // 确保data是数组格式
+          let regionsArray: Region[] = []
+          if (Array.isArray(data)) {
+            regionsArray = data
+          } else if (data && data.data && Array.isArray(data.data)) {
+            regionsArray = data.data
+          } else {
+            console.warn('Unexpected regions API response format:', data)
+          }
+          
+          setRegions(regionsArray)
+          
+          // 根据用户权限处理地区选择
+          if (regionsArray.length === 1) {
+            // 用户只有一个地区权限，自动选择
+            form.setValue("regionId", regionsArray[0].id.toString())
+            setWarehouses(regionsArray[0].warehouses || [])
+            console.log('✅ 自动选择用户唯一地区:', regionsArray[0].name, '仓库数量:', regionsArray[0].warehouses?.length)
+          } else if (regionsArray.length > 1) {
+            // 多个地区，需要手动选择
+            console.log('✅ 用户有多个地区，显示供选择')
+          }
+        } else {
+          console.error('Failed to fetch regions:', response.status, response.statusText)
+          toast({
+            title: "Error",
+            description: `Failed to load regions: ${response.status}`,
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Failed to load regions:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load regions. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingRegions(false)
+      }
+    }
+
+    loadRegionsAndWarehouses()
+  }, [currentUser]) // 依赖currentUser，确保用户信息加载后再执行
 
   useEffect(() => {
     const loadPurchaseOrders = async () => {
@@ -142,44 +255,182 @@ export function InboundForm() {
     loadPurchaseOrders()
   }, [])
 
+  // 处理地区变化，更新仓库列表
+  const handleRegionChange = (regionId: string) => {
+    form.setValue("regionId", regionId)
+    form.setValue("warehouseId", "") // 清空仓库选择
+    
+    const selectedRegion = regions.find((r: Region) => r.id.toString() === regionId)
+    setWarehouses(selectedRegion?.warehouses || [])
+  }
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log('🔍 Debug - Items state:', {
+      manualItems: manualItems.length,
+      poItems: poItems.length,
+      totalItems: items.length,
+      manualItemsDetail: manualItems,
+      itemsDetail: items
+    })
+    
     if (items.length === 0) {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Please add at least one item to the inbound transaction.",
         variant: "destructive",
       })
       return
     }
-    console.log(values);
-    try {
-      const result = await createInboundTransaction({
+    console.log('📋 Form values:', values);
+    
+    // 检查是否为纯手动入库
+    const isManualOnly = transactionTypes.length === 1 && transactionTypes[0] === "non-order-based"
+    
+    if (isManualOnly && manualItems.length > 0) {
+      // 验证必需字段
+      const invalidItems = manualItems.filter(item => 
+        !item.productId || !item.djjCode || !item.category
+      )
+      
+      if (invalidItems.length > 0) {
+        toast({
+          title: "数据验证失败",
+          description: `${invalidItems.length} 个项目缺少必需的产品信息（产品ID、编码或分类）`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      // 处理文件上传
+      let files: string[] = []
+      if (values.files && values.files.length > 0) {
+        try {
+          console.log('📎 开始上传文件...', values.files.length, '个文件')
+          
+          // 上传每个文件
+          const uploadPromises = values.files.map(async (file: File) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('folder', 'inbound') // 使用inbound文件夹
+            
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+            })
+            
+            if (!response.ok) {
+              throw new Error(`文件上传失败: ${file.name}`)
+            }
+            
+            const result = await response.json()
+            return result.url || file.name // 返回服务器端文件URL
+          })
+          
+          files = await Promise.all(uploadPromises)
+          console.log('✅ 文件上传完成:', files)
+        } catch (error) {
+          console.error('❌ 文件上传失败:', error)
+          toast({
+            title: "文件上传失败",
+            description: "部分文件上传失败，将继续处理入库操作",
+            variant: "destructive",
+          })
+          // 即使文件上传失败，也继续处理入库操作
+          files = values.files.map((file: File) => file.name)
+        }
+      }
+
+      // 使用新的手动入库API
+      const manualInboundData: ManualInboundRequest = {
+        region_id: parseInt(values.regionId),
+        warehouse_id: parseInt(values.warehouseId),
+        reference_number: values.referenceNumber,
+        receipt_date: values.receiptDate,
+        notes: values.notes || undefined,
+        file_paths: files, // 🔥 使用file_paths字段发送文件路径数组
+        items: manualItems.map(item => ({
+          product_id: item.productId!,        // 🔥 使用产品数据库ID
+          djj_code: item.djjCode!,            // DJJ编码
+          category: item.category!,           // 产品分类
+          quantity: item.qty,
+          unit_price: item.price,
+          vin: item.vin || undefined,
+          serial: item.serial || undefined,
+          add_loan: item.addLoan || undefined,
+          remark: item.remark || undefined,
+        }))
+      }
+      
+      console.log('🚀 发送手动入库请求:', manualInboundData);
+      
+      try {
+        const result = await createManualInboundTransaction(manualInboundData)
+
+        if (result.success && result.data) {
+          const response = result.data
+          
+          // 显示详细的成功信息
+          const successMsg = response.failed_items > 0 
+            ? `成功 ${response.success_items}/${response.total_items} 项，失败 ${response.failed_items} 项`
+            : `全部 ${response.success_items} 项处理成功`
+            
+          toast({
+            title: "手动入库完成",
+            description: `${successMsg}，总价值: ¥${response.total_value.toFixed(2)}`,
+            variant: response.failed_items > 0 ? "default" : "default"
+          })
+          
+          // 如果有失败项目，显示详细信息
+          if (response.failed_items > 0) {
+            const failedItems = response.processed_items.filter(item => !item.success)
+            console.warn('❌ 入库失败项目:', failedItems)
+          }
+          
+          router("/inventory/inbound")
+        } else {
+          throw new Error(result.error || "手动入库处理失败")
+        }
+      } catch (error) {
+        console.error("手动入库失败:", error)
+        toast({
+          title: "手动入库失败",
+          description: error instanceof Error ? error.message : "手动入库处理失败，请重试。",
+          variant: "destructive",
+        })
+      }
+    } else {
+      // 使用原有的入库API（订单入库或混合入库）
+      const submitData = {
         ...values,
-        // Use the first transaction type for backward compatibility
         transactionType: values.transactionTypes[0],
-        // Use the first PO ID for backward compatibility
         purchaseOrderId:
           values.purchaseOrderIds && values.purchaseOrderIds.length > 0 ? values.purchaseOrderIds[0] : undefined,
         items,
         files: values.files,
-      })
-
-      if (result.success) {
-        toast({
-          title: "入库成功",
-          description: `入库交易 ${result.id} 创建成功，库存已更新。`,
-        })
-        router("/inventory/inbound")
-      } else {
-        throw new Error("入库交易创建失败")
       }
-    } catch (error) {
-      console.error("入库失败:", error)
-      toast({
-        title: "入库失败",
-        description: error instanceof Error ? error.message : "入库交易创建失败，请重试。",
-        variant: "destructive",
-      })
+      
+      console.log('🚀 Sending to legacy backend:', submitData);
+      
+      try {
+        const result = await createInboundTransaction(submitData)
+
+        if (result.success) {
+          toast({
+            title: "入库成功",
+            description: `入库交易 ${result.id} 创建成功，库存已更新。`,
+          })
+          router("/inventory/inbound")
+        } else {
+          throw new Error("入库交易创建失败")
+        }
+      } catch (error) {
+        console.error("入库失败:", error)
+        toast({
+          title: "入库失败",
+          description: error instanceof Error ? error.message : "入库交易创建失败，请重试。",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -241,9 +492,12 @@ export function InboundForm() {
           newPoItems.push({
             id: `po-${po.id}-${item.id}`,
             name: item.name,
+            category: item.category, // 使用订单项目的category
             sku: item.sku,
-            quantity: remainingQty,
-            unitPrice: item.unitPrice,
+            qty: remainingQty, // 使用标准qty字段
+            price: item.unitPrice, // 使用标准price字段
+            quantity: remainingQty, // 保留兼容字段
+            unitPrice: item.unitPrice, // 保留兼容字段
             location: "",
             lotNumber: "",
             expirationDate: "",
@@ -579,7 +833,82 @@ export function InboundForm() {
 
             {/* Basic Information */}
             <div className="grid gap-4 md:grid-cols-2">
+              {/* Region Selection */}
               <FormField
+                control={form.control}
+                name="regionId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Region</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={handleRegionChange}
+                      disabled={isLoadingRegions || regions.length <= 1}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue 
+                            placeholder={
+                              regions.length === 1 
+                                ? regions[0]?.name 
+                                : "Select region"
+                            } 
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {regions.map((region: Region) => (
+                          <SelectItem key={region.id} value={region.id.toString()}>
+                            {region.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {regions.length === 1 && (
+                      <FormDescription>
+                        您被分配到 {regions[0]?.name} 地区，仓库数量: {warehouses.length}
+                      </FormDescription>
+                    )}
+                    {regions.length > 1 && (
+                      <FormDescription>
+                        请选择入库地区
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Warehouse Selection */}
+              <FormField
+                control={form.control}
+                name="warehouseId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Warehouse * ({warehouses.length} 个可选)</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={warehouses.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {warehouses.map((warehouse: Warehouse) => (
+                          <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                            {warehouse.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {/* <FormField
                 control={form.control}
                 name="supplierName"
                 render={({ field }) => (
@@ -608,7 +937,7 @@ export function InboundForm() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              /> */}
 
               <FormField
                 control={form.control}

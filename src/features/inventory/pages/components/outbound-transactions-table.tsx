@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useWebSocket } from "../../../../hooks/useWebSocket"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -56,10 +57,32 @@ export function OutboundTransactionsTable() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
+  const [transactions, setTransactions] = useState(mockOutboundTransactions)
   const itemsPerPage = 10
 
+  // WebSocket监听库存更新
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${protocol}//${window.location.host}/ws/inventory`
+  const { isConnected, lastMessage } = useWebSocket(wsUrl)
+
+  // WebSocket消息处理
+  useEffect(() => {
+    if (lastMessage) {
+      console.log('📨 [出库页面] 收到WebSocket消息:', lastMessage)
+      
+      // 检查是否是库存更新消息 (后端发送的格式)
+      if (lastMessage.data?.event === 'inventoryUpdated') {
+        console.log('🔄 [出库页面] 库存已更新，刷新数据...')
+        
+        // TODO: 这里应该重新获取出库记录数据
+        // 现在只是记录日志，真实应用中应该调用API重新获取数据
+        console.log('✅ [出库页面] 检测到库存变更')
+      }
+    }
+  }, [lastMessage])
+
   // Filter transactions based on search query
-  const filteredTransactions = mockOutboundTransactions.filter(
+  const filteredTransactions = transactions.filter(
     (transaction) =>
       transaction.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       transaction.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||

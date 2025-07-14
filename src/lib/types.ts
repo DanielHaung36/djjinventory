@@ -1,7 +1,9 @@
 export interface InboundItem {
   id: string
+  productId?: number // 🔥 产品数据库ID - 用于库存操作
+  djjCode?: string // DJJ产品编码
   name: string
-  type: string
+  category: string // 产品分类 - 统一使用category字段
   qty: number
   price: number
   vin?: string
@@ -10,6 +12,15 @@ export interface InboundItem {
   remark?: string
   orderedQty?: number // For order-based transactions
   receivedQty?: number // For order-based transactions
+  source?: "manual" | "purchase-order" // 来源标识，用于区分处理逻辑
+  sku?: string // SKU - 用于订单入库
+  quantity?: number // 兼容旧字段名
+  unitPrice?: number // 兼容旧字段名
+  location?: string // 兼容旧字段名
+  lotNumber?: string // 兼容旧字段名
+  expirationDate?: string // 兼容旧字段名
+  purchaseOrderId?: string // 关联的采购订单ID
+  purchaseOrderNumber?: string // 关联的采购订单号
 }
 
 export interface OutboundItem extends InboundItem {
@@ -47,7 +58,7 @@ export interface PurchaseOrder {
   items: Array<{
     id: string
     name: string
-    type: string
+    category: string // 统一使用category字段
     sku: string
     description?: string
     orderedQty: number
@@ -68,7 +79,7 @@ export interface SalesOrder {
   items: Array<{
     id: string
     name: string
-    type: string
+    category: string // 统一使用category字段
     sku: string
     description?: string
     orderedQty: number

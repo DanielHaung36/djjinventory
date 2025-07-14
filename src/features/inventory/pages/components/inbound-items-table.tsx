@@ -39,7 +39,7 @@ export function InboundItemsTable({ items, updateItem, removeItem, renderItemBad
                   {renderItemBadge && renderItemBadge(item)}
                 </div>
               </TableCell>
-              <TableCell>{item.type}</TableCell>
+              <TableCell>{item.category}</TableCell>
               <TableCell>
                 <Input
                   type="number"
@@ -60,7 +60,7 @@ export function InboundItemsTable({ items, updateItem, removeItem, renderItemBad
                 />
               </TableCell>
               <TableCell>
-                {item.type === "Host" ? (
+                {item.category === "Machine" ? (
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Input

@@ -116,6 +116,36 @@ export const authApi = createApi({
         //     }
         //     return headers
         // },
+        fetchFn: async (input, init) => {
+            console.log('🔐 [Auth API] Request:', {
+                url: input,
+                method: init?.method || 'GET',
+                headers: init?.headers,
+                body: init?.body
+            });
+            
+            const response = await fetch(input, init);
+            const clonedResponse = response.clone();
+            
+            try {
+                const data = await clonedResponse.json();
+                console.log('📨 [Auth API] Response:', {
+                    url: input,
+                    status: response.status,
+                    statusText: response.statusText,
+                    data
+                });
+            } catch (error) {
+                console.log('📨 [Auth API] Response (non-JSON):', {
+                    url: input,
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: error.message
+                });
+            }
+            
+            return response;
+        },
     }),
 
     // endpoints：在这里一一声明所有的接口

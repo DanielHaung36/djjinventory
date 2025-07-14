@@ -6,6 +6,8 @@ import { PackageCheck } from "lucide-react"
 import { Link } from "react-router-dom"
 
 export default function InboundPage() {
+  console.log('🏠 [InventoryInboundPage] 页面加载');
+  
   return (
     <DashboardShell>
       <DashboardHeader

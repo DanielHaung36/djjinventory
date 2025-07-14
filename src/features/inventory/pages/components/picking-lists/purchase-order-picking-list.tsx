@@ -57,7 +57,7 @@ export function PurchaseOrderPickingList({ purchaseOrder, onItemsSelected, onCan
       .map((item) => ({
         id: item.id,
         name: item.name,
-        type: item.type,
+        category: item.category,
         qty: receivedQuantities[item.id],
         price: item.unitPrice,
         orderedQty: item.orderedQty,

@@ -836,7 +836,6 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
 import { MaterialReactTable, useMaterialReactTable, type MRT_ColumnDef } from "material-react-table"
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider"
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs"
@@ -1118,7 +1117,6 @@ const mockInventoryData: InventoryItem[] = [
 
 // --- 主页面组件 ---
 function InventoryOverviewPage() {
-  const navigate = useNavigate()
   const [selectedRegion, setSelectedRegion] = useState<string>("all")
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all")
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
@@ -1337,7 +1335,7 @@ function InventoryOverviewPage() {
       <div
         key="in"
         onClick={() => {
-          navigate(`/inventory/inbound/new?productId=${row.original.product_id}&productName=${encodeURIComponent(row.original.product_name)}`)
+          toast({ title: "入库操作" })
           closeMenu()
         }}
         className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
@@ -1348,7 +1346,7 @@ function InventoryOverviewPage() {
       <div
         key="out"
         onClick={() => {
-          navigate(`/inventory/outbound/new?productId=${row.original.product_id}&productName=${encodeURIComponent(row.original.product_name)}`)
+          toast({ title: "出库操作" })
           closeMenu()
         }}
         className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
@@ -1557,18 +1555,11 @@ function InventoryOverviewPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 pt-4">
-                    <Button 
-                      className="flex-1"
-                      onClick={() => navigate(`/inventory/inbound/new?productId=${selectedItem.product_id}&productName=${encodeURIComponent(selectedItem.product_name)}`)}
-                    >
+                    <Button className="flex-1">
                       <Plus className="h-4 w-4 mr-2" />
                       入库
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 bg-transparent"
-                      onClick={() => navigate(`/inventory/outbound/new?productId=${selectedItem.product_id}&productName=${encodeURIComponent(selectedItem.product_name)}`)}
-                    >
+                    <Button variant="outline" className="flex-1 bg-transparent">
                       <Minus className="h-4 w-4 mr-2" />
                       出库
                     </Button>

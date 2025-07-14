@@ -2,7 +2,6 @@ import { defineConfig,loadEnv  } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
-import mkcert        from 'vite-plugin-mkcert'
 import path from 'path'
 console.log("正在读取证书文件...");
 // console.log("key size:", fs.readFileSync('./server.key').length);
@@ -32,7 +31,6 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       basicSsl(),
-      mkcert(),
       ignoreTS
     ],
     resolve: {
@@ -46,9 +44,6 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       allowedHosts: true,
       https: {
-        key: './certs/server.key',
-        cert: './certs/server.crt',
-        ca: './certs/ca.crt',
       },
        // 只有在开发模式下启用 proxy
       ...(mode === 'development' && {

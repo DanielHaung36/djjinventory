@@ -9,6 +9,95 @@ import {
   type ApiResponse,
 } from './types';
 
+// 入库详情相关类型
+export interface InboundDetailData {
+  id: number;
+  referenceNumber: string;
+  batchId?: number;
+  date: string;
+  operator: string;
+  operatorId: number;
+  region: string;
+  regionId: number;
+  warehouse: string;
+  warehouseId: number;
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+  notes?: string;
+  status: string;
+  createdAt: string;
+  items: InboundItemDetail[];
+  documents: InboundDocumentDetail[];
+}
+
+export interface InboundItemDetail {
+  id: number;
+  transactionId: number;
+  productId: number;
+  productName: string;
+  djjCode: string;
+  category: string;
+  quantity: number;
+  unitPrice: number;
+  totalValue: number;
+  beforeStock: number;
+  afterStock: number;
+  vin?: string;
+  serial?: string;
+  remark?: string;
+  createdAt: string;
+}
+
+export interface InboundDocumentDetail {
+  id: number;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  filePath: string;
+  fileUrl: string;
+  documentType: string;
+  description?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  isImage: boolean;
+  isPdf: boolean;
+}
+
+export interface InboundListParams {
+  page?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  operator?: string;
+  search?: string;
+}
+
+export interface InboundListResponse {
+  items: InboundListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface InboundListItem {
+  id: number;
+  referenceNumber: string;
+  batchId?: number;
+  date: string;
+  operator: string;
+  region: string;
+  warehouse: string;
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+  status: string;
+  documentCount: number;
+  createdAt: string;
+}
+
 import type { Region } from '../customer/types';
 // ===== 类型定义 =====
 
@@ -169,14 +258,49 @@ export const inventoryApi = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: fetchBaseQuery({
     baseUrl: '/api/inventory',
-    prepareHeaders: (headers) => {
+    credentials: 'include',
+    prepareHeaders: (headers, { getState }) => {
       // 添加认证token
-      // const token = (getState() as RootState).auth.token;
-      // if (token) {
-      //   headers.set('authorization', `Bearer ${token}`);
-      // }
+      const token = (getState() as RootState).auth.token;
+      if (token) {
+        headers.set('authorization', `Bearer ${token}`);
+        console.log('🔑 [Inventory API] Using token:', token.substring(0, 20) + '...');
+      } else {
+        console.log('🔑 [Inventory API] No token found, using cookies only');
+      }
       headers.set('content-type', 'application/json');
       return headers;
+    },
+    fetchFn: async (input, init) => {
+      const url = typeof input === 'string' ? input : input.url;
+      console.log('🌐 [Inventory API] Request:', {
+        url: url,
+        method: init?.method || 'GET',
+        headers: Object.fromEntries(new Headers(init?.headers).entries()),
+        body: init?.body
+      });
+      
+      const response = await fetch(input, init);
+      const clonedResponse = response.clone();
+      
+      try {
+        const data = await clonedResponse.json();
+        console.log('📨 [Inventory API] Response:', {
+          url: url,
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
+      } catch (error) {
+        console.log('📨 [Inventory API] Response (non-JSON):', {
+          url: url,
+          status: response.status,
+          statusText: response.statusText,
+          error: error.message
+        });
+      }
+      
+      return response;
     },
   }),
  tagTypes: ['Inventory', 'Stock', 'Reservation', 'Transaction', 'Region','TodayStats'],
@@ -530,6 +654,291 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
       // 这里简单不打 tag 也没问题
       providesTags: [{ type: 'TodayStats', id: 'TODAY' }],
     }),
+
+    // ===== 入库详情管理接口 =====
+    
+    // 获取入库详情
+    getInboundDetail: builder.query<InboundDetailData, number>({
+      query: (inboundId) => `inbound/detail/${inboundId}`,
+      transformResponse: (response: { success: boolean; data: any }) => {
+        const data = response.data;
+        // 转换蛇形命名为驼峰命名
+        return {
+          id: data.id,
+          referenceNumber: data.reference_number,
+          batchId: data.batch_id,
+          date: data.date,
+          operator: data.operator,
+          operatorId: data.operator_id,
+          region: data.region,
+          regionId: data.region_id,
+          warehouse: data.warehouse,
+          warehouseId: data.warehouse_id,
+          totalItems: data.total_items,
+          totalQuantity: data.total_quantity,
+          totalValue: data.total_value,
+          notes: data.notes,
+          status: data.status,
+          createdAt: data.created_at,
+          items: data.items?.map((item: any) => ({
+            id: item.id,
+            transactionId: item.transaction_id,
+            productId: item.product_id,
+            productName: item.product_name,
+            djjCode: item.djj_code,
+            category: item.category,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            totalValue: item.total_value,
+            beforeStock: item.before_stock,
+            afterStock: item.after_stock,
+            vin: item.vin,
+            serial: item.serial,
+            remark: item.remark,
+            createdAt: item.created_at
+          })) || [],
+          documents: data.documents?.map((doc: any) => {
+            const fileName = doc.file_name || '';
+            const fileType = doc.file_type || '';
+            const extension = fileName.split('.').pop()?.toLowerCase() || '';
+            
+            // 基于文件扩展名和MIME类型检测
+            const isImageFile = Boolean(doc.is_image) || 
+              ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension) ||
+              fileType.startsWith('image/');
+            
+            const isPdfFile = Boolean(doc.is_pdf) || 
+              extension === 'pdf' || 
+              fileType === 'application/pdf';
+            
+            return {
+              id: doc.id,
+              fileName: fileName,
+              fileType: fileType,
+              fileSize: doc.file_size,
+              filePath: doc.file_path,
+              fileUrl: doc.file_url,
+              documentType: doc.document_type,
+              description: doc.description,
+              uploadedBy: doc.uploaded_by,
+              uploadedAt: doc.uploaded_at,
+              isImage: isImageFile,
+              isPdf: isPdfFile
+            };
+          }) || []
+        };
+      },
+      providesTags: (result, error, inboundId) => [
+        { type: 'Transaction', id: inboundId },
+        'Inventory'
+      ],
+    }),
+
+    // 获取事务详情（通用）
+    getTransactionDetail: builder.query<InboundDetailData, {id: number, type: 'IN' | 'OUT'}>({
+      query: ({id, type}) => `transaction/detail/${id}?type=${type}`,
+      transformResponse: (response: { success: boolean; data: any }) => {
+        const data = response.data;
+        // 转换蛇形命名为驼峰命名
+        return {
+          id: data.id,
+          referenceNumber: data.reference_number,
+          batchId: data.batch_id,
+          date: data.date,
+          operator: data.operator,
+          operatorId: data.operator_id,
+          region: data.region,
+          regionId: data.region_id,
+          warehouse: data.warehouse,
+          warehouseId: data.warehouse_id,
+          totalItems: data.total_items,
+          totalQuantity: data.total_quantity,
+          totalValue: data.total_value,
+          notes: data.notes,
+          status: data.status,
+          createdAt: data.created_at,
+          items: data.items?.map((item: any) => ({
+            id: item.id,
+            transactionId: item.transaction_id,
+            productId: item.product_id,
+            productName: item.product_name,
+            djjCode: item.djj_code,
+            category: item.category,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            totalValue: item.total_value,
+            beforeStock: item.before_stock,
+            afterStock: item.after_stock,
+            vin: item.vin,
+            serial: item.serial,
+            remark: item.remark,
+            createdAt: item.created_at
+          })) || [],
+          documents: data.documents?.map((doc: any) => {
+            const fileName = doc.file_name || '';
+            const fileType = doc.file_type || '';
+            const extension = fileName.split('.').pop()?.toLowerCase() || '';
+            
+            // 基于文件扩展名和MIME类型检测
+            const isImageFile = Boolean(doc.is_image) || 
+              ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension) ||
+              fileType.startsWith('image/');
+            
+            const isPdfFile = Boolean(doc.is_pdf) || 
+              extension === 'pdf' || 
+              fileType === 'application/pdf';
+              
+            return {
+              id: doc.id,
+              fileName,
+              fileType,
+              fileSize: doc.file_size,
+              filePath: doc.file_path,
+              fileUrl: doc.file_url,
+              documentType: doc.document_type,
+              description: doc.description,
+              uploadedBy: doc.uploaded_by,
+              uploadedAt: doc.uploaded_at,
+              isImage: isImageFile,
+              isPdf: isPdfFile
+            };
+          }) || []
+        };
+      },
+      providesTags: (result, error, {id}) => [
+        { type: 'Transaction', id },
+        'Inventory'
+      ],
+    }),
+
+    // 获取入库列表
+    getInboundList: builder.query<InboundListResponse, InboundListParams>({
+      query: (params) => ({
+        url: 'inbound/list',
+        params: {
+          page: params.page || 1,
+          page_size: params.pageSize || 20,
+          start_date: params.startDate,
+          end_date: params.endDate,
+          status: params.status,
+          operator: params.operator,
+          search: params.search,
+        },
+      }),
+      transformResponse: (response: { success: boolean; data: any }) => {
+        const data = response.data;
+        return {
+          items: data.items?.map((item: any) => ({
+            id: item.id,
+            referenceNumber: item.reference_number,
+            batchId: item.batch_id,
+            date: item.date,
+            operator: item.operator,
+            operatorId: item.operator_id,
+            region: item.region,
+            regionId: item.region_id,
+            warehouse: item.warehouse,
+            warehouseId: item.warehouse_id,
+            totalItems: item.total_items,
+            totalQuantity: item.total_quantity,
+            totalValue: item.total_value,
+            status: item.status,
+            documentCount: item.document_count || 0,
+            createdAt: item.created_at
+          })) || [],
+          total: data.total,
+          page: data.page,
+          pageSize: data.page_size,
+          totalPages: data.total_pages
+        };
+      },
+      providesTags: ['Transaction', 'Inventory'],
+      
+      // 🎯 使用customer模式的WebSocket实时更新
+      async onCacheEntryAdded(
+        _arg,
+        {
+          updateCachedData,
+          cacheDataLoaded,
+          cacheEntryRemoved
+        }
+      ) {
+        // 等待初次请求完成
+        await cacheDataLoaded
+        
+        // 建立ws连接到 /ws/inventory
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const ws = new WebSocket(
+          `${protocol}//${window.location.host}/ws/inventory`
+        )
+        
+        console.log('🔌 [InventoryAPI] 建立WebSocket连接:', `${protocol}//${window.location.host}/ws/inventory`)
+        
+        ws.onopen = () => {
+          console.log('✅ [InventoryAPI] WebSocket连接成功')
+        }
+        
+        ws.onmessage = ({ data }) => {
+          try {
+            const msg = JSON.parse(data) as {
+              event: string
+              type: string
+              data: {
+                action: string
+                referenceNumber: string
+                totalQuantity: number
+                totalValue: number
+                timestamp: number
+              }
+            }
+            
+            console.log('📨 [InventoryAPI] 收到WebSocket消息:', msg)
+            
+            // 检查是否为库存更新消息
+            if (msg.type === 'inventory_update' && msg.data?.action === 'inbound_created') {
+              console.log('🔄 [InventoryAPI] 检测到入库创建，触发缓存失效')
+              
+              // 直接失效缓存，让组件重新查询
+              updateCachedData(() => {
+                // 返回undefined会触发重新查询
+                return undefined
+              })
+            }
+          } catch (error) {
+            console.error('❌ [InventoryAPI] WebSocket消息处理失败:', error)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('❌ [InventoryAPI] WebSocket连接错误:', error)
+        }
+        
+        ws.onclose = (event) => {
+          console.log('🔌 [InventoryAPI] WebSocket连接断开:', event.code, event.reason)
+        }
+        
+        // cache销毁时，断开ws
+        await cacheEntryRemoved
+        ws.close()
+      }
+    }),
+
+    // 预览文档
+    previewDocument: builder.query<{
+      documentId: number;
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      previewUrl: string;
+      downloadUrl: string;
+      isImage: boolean;
+      isPdf: boolean;
+    }, number>({
+      query: (documentId) => `documents/${documentId}/preview`,
+      transformResponse: (response: { success: boolean; data: any }) => {
+        return response.data;
+      },
+    }),
   }),
 });
 
@@ -602,4 +1011,10 @@ export const {
   useScanOutMutation,
   useGetInventoryByCodeQuery,
   useGetTodayStatsQuery,
+
+  // 入库详情管理hooks
+  useGetInboundDetailQuery,
+  useGetTransactionDetailQuery,
+  useGetInboundListQuery,
+  usePreviewDocumentQuery,
 } = inventoryApi;

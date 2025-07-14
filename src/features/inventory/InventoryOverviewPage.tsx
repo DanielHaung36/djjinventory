@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState, createRef, useEffect } from "react";
 import Header from "../../components/Header";
 import Grid from "@mui/material/Grid";
+import { useWebSocket } from "../../hooks/useWebSocket";
 import {
   Box,
   Button,
@@ -98,6 +99,11 @@ const InventoryOverviewPage: React.FC = () => {
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [currentProduct, setCurrentProduct] =
     useState<InventoryRow | null>(null);
+
+  // WebSocket监听库存更新
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}/ws/inventory`;
+  const { isConnected, lastMessage } = useWebSocket(wsUrl);
   const [isFs, setIsFs] = useState(false);
   // 1) 用一个 map 来存每列头的 anchorEl
   const [columnAnchors, setColumnAnchors] = useState<
@@ -280,6 +286,28 @@ const InventoryOverviewPage: React.FC = () => {
       .then((data) => setTableData(data))
       .finally(() => setLoading(false));
   }, []);
+
+  // WebSocket消息处理
+  useEffect(() => {
+    if (lastMessage) {
+      console.log('📨 [库存页面] 收到WebSocket消息:', lastMessage);
+      
+      // 检查是否是库存更新消息 (后端发送的格式)
+      if (lastMessage.data?.event === 'inventoryUpdated') {
+        console.log('🔄 [库存页面] 库存已更新，刷新数据...');
+        
+        // 重新获取库存数据
+        fetchInventory()
+          .then((data) => {
+            setTableData(data);
+            console.log('✅ [库存页面] 库存数据已刷新');
+          })
+          .catch((error) => {
+            console.error('❌ [库存页面] 刷新库存数据失败:', error);
+          });
+      }
+    }
+  }, [lastMessage]);
 
   const table = useMaterialReactTable({
     columns,
