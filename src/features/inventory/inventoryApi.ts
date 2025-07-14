@@ -98,6 +98,96 @@ export interface InboundListItem {
   createdAt: string;
 }
 
+// 出库详情相关类型
+export interface OutboundDetailData {
+  id: number;
+  referenceNumber: string;
+  batchId?: number;
+  date: string;
+  operator: string;
+  operatorId: number;
+  region: string;
+  regionId: number;
+  warehouse: string;
+  warehouseId: number;
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+  notes?: string;
+  status: string;
+  createdAt: string;
+  items: OutboundItemDetail[];
+  documents: OutboundDocumentDetail[];
+}
+
+export interface OutboundItemDetail {
+  id: number;
+  transactionId: number;
+  productId: number;
+  productName: string;
+  djjCode: string;
+  category: string;
+  quantity: number;
+  unitPrice: number;
+  totalValue: number;
+  beforeStock: number;
+  afterStock: number;
+  vin?: string;
+  serial?: string;
+  remark?: string;
+  createdAt: string;
+}
+
+export interface OutboundDocumentDetail {
+  id: number;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  filePath: string;
+  fileUrl: string;
+  documentType: string;
+  description?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  isImage: boolean;
+  isPdf: boolean;
+}
+
+export interface OutboundListParams {
+  page?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  operator?: string;
+  search?: string;
+}
+
+export interface OutboundListResponse {
+  items: OutboundListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface OutboundListItem {
+  id: number;
+  referenceNumber: string;
+  batchId?: number;
+  date: string;
+  operator: string;
+  region: string;
+  warehouse: string;
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+  status: string;
+  documentCount: number;
+  createdAt: string;
+  customerName?: string;
+}
+
 import type { Region } from '../customer/types';
 // ===== 类型定义 =====
 
@@ -923,6 +1013,119 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
       }
     }),
 
+    // ===== 出库详情管理接口 =====
+    
+    // 获取出库列表
+    getOutboundList: builder.query<OutboundListResponse, OutboundListParams>({
+      query: (params) => ({
+        url: 'manual-outbound',
+        params: {
+          page: params.page || 1,
+          size: params.pageSize || 20,
+          start_date: params.startDate,
+          end_date: params.endDate,
+          status: params.status,
+          operator: params.operator,
+          search: params.search,
+        },
+      }),
+      transformResponse: (response: { success: boolean; data: any }) => {
+        // 后端返回的是 OutboundRecordListDto 数组，不是分页结构
+        const dataArray = Array.isArray(response.data) ? response.data : [];
+        return {
+          items: dataArray.map((item: any) => ({
+            id: item.first_transaction_id, // 使用真实的事务ID
+            referenceNumber: item.reference_number,
+            batchId: undefined,
+            date: item.shipment_date || item.created_at?.split(' ')[0], // 使用shipment_date或从created_at提取日期
+            operator: item.operator || 'Unknown',
+            region: item.region_name || 'Unknown',
+            warehouse: item.warehouse_name || 'Unknown',
+            totalItems: item.item_count,
+            totalQuantity: item.total_quantity,
+            totalValue: item.total_value || 0,
+            status: 'completed', // 默认状态
+            documentCount: 0, // 后端暂未返回文档数量
+            createdAt: item.created_at,
+            customerName: item.customer_name // 添加客户名称字段
+          })),
+          total: dataArray.length,
+          page: 1, // 后端暂未支持分页
+          pageSize: dataArray.length,
+          totalPages: 1
+        };
+      },
+      providesTags: ['Transaction', 'Inventory'],
+      
+      // 🎯 使用相同模式的WebSocket实时更新
+      async onCacheEntryAdded(
+        _arg,
+        {
+          updateCachedData,
+          cacheDataLoaded,
+          cacheEntryRemoved
+        }
+      ) {
+        // 等待初次请求完成
+        await cacheDataLoaded
+        
+        // 建立ws连接到 /ws/inventory
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const ws = new WebSocket(
+          `${protocol}//${window.location.host}/ws/inventory`
+        )
+        
+        console.log('🔌 [InventoryAPI-Outbound] 建立WebSocket连接:', `${protocol}//${window.location.host}/ws/inventory`)
+        
+        ws.onopen = () => {
+          console.log('✅ [InventoryAPI-Outbound] WebSocket连接成功')
+        }
+        
+        ws.onmessage = ({ data }) => {
+          try {
+            const msg = JSON.parse(data) as {
+              event: string
+              type: string
+              data: {
+                action: string
+                referenceNumber: string
+                totalQuantity: number
+                totalValue: number
+                timestamp: number
+              }
+            }
+            
+            console.log('📨 [InventoryAPI-Outbound] 收到WebSocket消息:', msg)
+            
+            // 检查是否为库存更新消息
+            if (msg.type === 'inventory_update' && msg.data?.action === 'outbound_created') {
+              console.log('🔄 [InventoryAPI-Outbound] 检测到出库创建，触发缓存失效')
+              
+              // 直接失效缓存，让组件重新查询
+              updateCachedData(() => {
+                // 返回undefined会触发重新查询
+                return undefined
+              })
+            }
+          } catch (error) {
+            console.error('❌ [InventoryAPI-Outbound] WebSocket消息处理失败:', error)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('❌ [InventoryAPI-Outbound] WebSocket连接错误:', error)
+        }
+        
+        ws.onclose = (event) => {
+          console.log('🔌 [InventoryAPI-Outbound] WebSocket连接断开:', event.code, event.reason)
+        }
+        
+        // cache销毁时，断开ws
+        await cacheEntryRemoved
+        ws.close()
+      }
+    }),
+
     // 预览文档
     previewDocument: builder.query<{
       documentId: number;
@@ -938,6 +1141,42 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
       transformResponse: (response: { success: boolean; data: any }) => {
         return response.data;
       },
+    }),
+
+    // ===== 手动出库表单提交接口 =====
+    submitManualOutbound: builder.mutation<
+      { success: boolean; message: string; referenceNumber: string },
+      {
+        regionId: number;
+        warehouseId: number;
+        referenceNumber: string;
+        shipmentDate: string;
+        customerName?: string;
+        notes?: string;
+        items: Array<{
+          product_id: number;
+          product_name: string;
+          category: string;
+          quantity: number;
+          unit_price: number;
+          notes?: string;
+        }>;
+        file_paths?: string[];
+      }
+    >({
+      query: (data) => ({
+        url: 'manual-outbound',
+        method: 'POST',
+        body: data,
+      }),
+      transformResponse: (response: { success: boolean; data: any; message: string }, _meta, arg) => {
+        return {
+          success: response.success,
+          message: response.message || '出库成功',
+          referenceNumber: response.data?.reference_number || arg.referenceNumber
+        };
+      },
+      invalidatesTags: ['Transaction', 'Inventory'],
     }),
   }),
 });
@@ -1016,5 +1255,10 @@ export const {
   useGetInboundDetailQuery,
   useGetTransactionDetailQuery,
   useGetInboundListQuery,
+  
+  // 出库详情管理hooks
+  useGetOutboundListQuery,
+  useSubmitManualOutboundMutation,
+  
   usePreviewDocumentQuery,
 } = inventoryApi;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect,useMemo } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { useSearchParams } from "react-router-dom"
@@ -15,16 +15,21 @@ import { toast } from "@/components/ui/use-toast"
 import { FileUploader } from "../file-uploader"
 import { OutboundItemsTable } from "../outbound-items-table"
 import { createOutboundTransaction, getSalesOrders } from "@/lib/actions/inventory-actions"
-import type { Customer, OutboundItem, SalesOrder } from "@/lib/types"
+import { useSubmitManualOutboundMutation } from "@/features/inventory/inventoryApi"
+import type { Customer, OutboundItem, SalesOrder,PurchaseOrder } from "@/lib/types"
 import { PlusCircle, FileText, ClipboardList, Tag, ListFilter, ShoppingBag, Loader2 } from "lucide-react"
 import { AddItemDialog } from "../dialogs/add-item-dialog"
 import { SelectSalesOrderDialog } from "../dialogs/select-sales-order-dialog"
 import { SalesOrderPickingList } from "../picking-lists/sales-order-picking-list"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
+import type { Region, Warehouse } from "../../../types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNavigate } from "react-router-dom"
+import { createInboundTransaction, getPurchaseOrders } from "@/lib/actions/inventory-actions"
+
+
 // Mock data for customers
 const customers: Customer[] = [
   { id: "1", name: "Retail Store A" },
@@ -32,22 +37,29 @@ const customers: Customer[] = [
   { id: "3", name: "Online Marketplace C" },
 ]
 
+// 1) schema 加字段
 const formSchema = z.object({
-  // Modified to allow both transaction types simultaneously
   transactionTypes: z.array(z.enum(["order-based", "non-order-based"])).min(1, "Select at least one transaction type"),
-  salesOrderIds: z.array(z.string()).optional(),
-  customerName: z.string().min(1, "Customer is required"),
-  referenceNumber: z.string().min(1, "Reference number is required"),
-  shipmentDate: z.string().min(1, "Shipment date is required"),
+  salesOrderIds:    z.array(z.string()).optional(),
+  purchaseOrderIds: z.array(z.string()).optional(),
+  regionId:         z.string().min(1, "Region is required"),
+  warehouseId:      z.string().min(1, "Warehouse is required"),
+  customerName:     z.string().optional(),
+  referenceNumber:  z.string().min(1),
+  shipmentDate:     z.string().min(1),
+  receiptDate: z.string().min(1, "Receipt date is required"),
   notes: z.string().optional(),
   files: z.array(z.any()).optional(),
 })
 
+
+
 export function OutboundForm() {
   const router = useNavigate()
   const [searchParams] = useSearchParams()
+  const [submitManualOutbound, { isLoading: isSubmitting }] = useSubmitManualOutboundMutation()
+  const [poItems, setPoItems] = useState<OutboundItem[]>([])
   const [items, setItems] = useState<OutboundItem[]>([])
-  const [soItems, setSoItems] = useState<OutboundItem[]>([])
   const [manualItems, setManualItems] = useState<OutboundItem[]>([])
   const [isAddingItem, setIsAddingItem] = useState(false)
   const [isSelectingSO, setIsSelectingSO] = useState(false)
@@ -58,38 +70,78 @@ export function OutboundForm() {
   const [showPickingList, setShowPickingList] = useState(false)
   const [customerNameInput, setCustomerNameInput] = useState("")
   const [referenceNumberInput, setReferenceNumberInput] = useState("")
-
+  const [isLoadingRegions, setIsLoadingRegions] = useState(false)
+  const [isLoadingPurchaseOrders, setIsLoadingPurchaseOrders] = useState(false)
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
+  const [regions, setRegions] = useState<Region[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [currentPO, setCurrentPO] = useState<PurchaseOrder | null>(null)
+  const [selectedPOs, setSelectedPOs] = useState<PurchaseOrder[]>([])
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       transactionTypes: ["non-order-based"],
-      salesOrderIds: [],
+      purchaseOrderIds: [],
+      regionId: "",
+      warehouseId: "",
       customerName: "",
       referenceNumber: "",
       shipmentDate: new Date().toISOString().split("T")[0],
+      receiptDate: new Date().toISOString().split("T")[0],
       notes: "",
       files: [],
     },
   })
-
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const transactionTypes = form.watch("transactionTypes")
   const isOrderBased = transactionTypes.includes("order-based")
   const isManualEntry = transactionTypes.includes("non-order-based")
+  // === 权限控制逻辑 ===
+  const canViewAllRegions = useMemo(() => {
+    if (!currentUser) return false
+    
+    // 从profile的role字段判断
+    let userRole = currentUser.role
+    
+    // 如果没有直接的role字段，从roles数组中获取
+    if (!userRole && currentUser.roles && currentUser.roles.length > 0) {
+      userRole = currentUser.roles[0]?.Name || currentUser.roles[0]?.name
+    }
+    
+    if (!userRole) return false
+    
+    const allowedRoles = ["admin", "financial_leader", "财务负责人", "管理员", "超级管理员"]
+    const hasPermission = allowedRoles.includes(userRole)
+    
+    console.log('✅ 入库表单权限检查:', { 
+      userRole, 
+      hasPermission,
+      userId: currentUser.id,
+      email: currentUser.email,
+      dataSource: 'profile'
+    })
+    
+    return hasPermission
+  }, [currentUser])
+
 
   // Update combined items whenever either source changes
   useEffect(() => {
-    setItems([...soItems, ...manualItems])
-  }, [soItems, manualItems])
+    setItems([...poItems, ...manualItems])
+  }, [poItems, manualItems])
+
+   // Update form values when reference number input changes
+  useEffect(() => {
+    form.setValue("referenceNumber", referenceNumberInput)
+  }, [referenceNumberInput, form])
 
   // Update form values when customer name input changes
   useEffect(() => {
     form.setValue("customerName", customerNameInput)
   }, [customerNameInput, form])
 
-  // Update form values when reference number input changes
-  useEffect(() => {
-    form.setValue("referenceNumber", referenceNumberInput)
-  }, [referenceNumberInput, form])
+
+
 
   // 处理从库存页面传来的产品信息
   useEffect(() => {
@@ -101,9 +153,12 @@ export function OutboundForm() {
       const newItem: OutboundItem = {
         id: `manual-from-inventory-${productId}`,
         name: decodeURIComponent(productName),
+        category: "Parts", // 默认分类，用户可以在对话框中修改
+        qty: 1,
+        price: 0,
         sku: `SKU-${productId}`,
-        quantity: 1,
-        unitPrice: 0,
+        quantity: 1, // 兼容字段
+        unitPrice: 0, // 兼容字段
         location: "",
         lotNumber: "",
         expirationDate: "",
@@ -112,32 +167,123 @@ export function OutboundForm() {
       setManualItems([newItem])
       
       // 设置参考号码为产品信息
-      setReferenceNumberInput(`${decodeURIComponent(productName)} - 出库`)
+      setReferenceNumberInput(`${decodeURIComponent(productName)} - 入库`)
     }
   }, [searchParams])
 
-  useEffect(() => {
-    const loadSalesOrders = async () => {
+    useEffect(() => {
+    const fetchCurrentUser = async () => {
       try {
-        setIsLoadingSalesOrders(true)
-        const orders = await getSalesOrders()
-        setSalesOrders(orders)
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const userData = await response.json()
+          setCurrentUser(userData)
+          console.log('✅ 获取用户信息成功:', userData)
+        }
       } catch (error) {
-        console.error("Failed to load sales orders:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load sales orders. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingSalesOrders(false)
+        console.error('Failed to fetch current user:', error)
       }
     }
 
-    loadSalesOrders()
+    fetchCurrentUser()
   }, [])
 
+  // 加载地区和仓库数据
+  useEffect(() => {
+    const loadRegionsAndWarehouses = async () => {
+      try {
+        setIsLoadingRegions(true)
+        const response = await fetch('/api/inventory/regions')
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Regions API response:', data)
+          
+          // 确保data是数组格式
+          let regionsArray: Region[] = []
+          if (Array.isArray(data)) {
+            regionsArray = data
+          } else if (data && data.data && Array.isArray(data.data)) {
+            regionsArray = data.data
+          } else {
+            console.warn('Unexpected regions API response format:', data)
+          }
+          
+          setRegions(regionsArray)
+          
+          // 根据用户权限处理地区选择
+          if (regionsArray.length === 1) {
+            // 用户只有一个地区权限，自动选择
+            form.setValue("regionId", regionsArray[0].id.toString())
+            setWarehouses(regionsArray[0].warehouses || [])
+            console.log('✅ 自动选择用户唯一地区:', regionsArray[0].name, '仓库数量:', regionsArray[0].warehouses?.length)
+          } else if (regionsArray.length > 1) {
+            // 多个地区，需要手动选择
+            console.log('✅ 用户有多个地区，显示供选择')
+          }
+        } else {
+          console.error('Failed to fetch regions:', response.status, response.statusText)
+          toast({
+            title: "Error",
+            description: `Failed to load regions: ${response.status}`,
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Failed to load regions:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load regions. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingRegions(false)
+      }
+    }
+
+    loadRegionsAndWarehouses()
+  }, [currentUser]) // 依赖currentUser，确保用户信息加载后再执行
+
+    useEffect(() => {
+    const loadPurchaseOrders = async () => {
+      try {
+        setIsLoadingPurchaseOrders(true)
+        const orders = await getPurchaseOrders()
+        setPurchaseOrders(orders)
+      } catch (error) {
+        console.error("Failed to load purchase orders:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load purchase orders. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingPurchaseOrders(false)
+      }
+    }
+
+    loadPurchaseOrders()
+  }, [])
+
+
+    // 处理地区变化，更新仓库列表
+  const handleRegionChange = (regionId: string) => {
+    form.setValue("regionId", regionId)
+    form.setValue("warehouseId", "") // 清空仓库选择
+    
+    const selectedRegion = regions.find((r: Region) => r.id.toString() === regionId)
+    setWarehouses(selectedRegion?.warehouses || [])
+  }
+
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
+        console.log('🔍 Debug - Items state:', {
+      manualItems: manualItems.length,
+      poItems: poItems.length,
+      totalItems: items.length,
+      manualItemsDetail: manualItems,
+      itemsDetail: items
+    })
+
     if (items.length === 0) {
       toast({
         title: "Error",
@@ -148,24 +294,52 @@ export function OutboundForm() {
     }
 
     try {
-      const result = await createOutboundTransaction({
-        ...values,
-        // Use the first transaction type for backward compatibility
-        transactionType: values.transactionTypes[0],
-        // Use the first SO ID for backward compatibility
-        salesOrderId: values.salesOrderIds && values.salesOrderIds.length > 0 ? values.salesOrderIds[0] : undefined,
-        items,
-        files: values.files,
-      })
+      // 只处理手动出库（非订单出库）
+      if (values.transactionTypes.includes("non-order-based") && manualItems.length > 0) {
+        const result = await submitManualOutbound({
+          regionId: parseInt(values.regionId),
+          warehouseId: parseInt(values.warehouseId),
+          referenceNumber: values.referenceNumber,
+          shipmentDate: values.shipmentDate,
+          customerName: values.customerName || undefined,
+          notes: values.notes || undefined,
+          items: manualItems.map(item => ({
+            product_id: parseInt(item.id.split('-')[2]) || 1, // 从ID中提取productId
+            product_name: item.name,
+            category: item.type || "未分类",
+            quantity: Math.abs(item.quantity || 0), // 确保数量为正数
+            unit_price: item.unitPrice || 0,
+            notes: `出库: ${item.name}`
+          })),
+          file_paths: values.files?.map((file: File) => file.name) || []
+        }).unwrap()
 
-      if (result.success) {
         toast({
           title: "出库成功",
-          description: `出库交易 ${result.id} 创建成功，库存已更新。`,
+          description: `出库交易 ${result.referenceNumber} 创建成功，库存已更新。`,
         })
         router("/inventory/outbound")
+      } else if (values.transactionTypes.includes("order-based")) {
+        // 对于基于订单的出库，仍使用原来的逻辑
+        const result = await createOutboundTransaction({
+          ...values,
+          transactionType: values.transactionTypes[0],
+          salesOrderId: values.salesOrderIds && values.salesOrderIds.length > 0 ? values.salesOrderIds[0] : undefined,
+          items,
+          files: values.files,
+        })
+
+        if (result.success) {
+          toast({
+            title: "出库成功",
+            description: `出库交易 ${result.id} 创建成功，库存已更新。`,
+          })
+          router("/inventory/outbound")
+        } else {
+          throw new Error("出库交易创建失败")
+        }
       } else {
-        throw new Error("出库交易创建失败")
+        throw new Error("请选择出库类型并添加商品")
       }
     } catch (error) {
       console.error("出库失败:", error)
@@ -185,17 +359,18 @@ export function OutboundForm() {
 
   const updateItem = (id: string, field: keyof OutboundItem, value: any) => {
     // Determine which array to update based on the item's ID
-    if (id.startsWith("so-")) {
-      setSoItems(soItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
+    if (id.startsWith("po-")) {
+      setPoItems(poItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
     } else {
       setManualItems(manualItems.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
     }
   }
 
+  
   const removeItem = (id: string) => {
     // Remove from the appropriate array based on ID prefix
-    if (id.startsWith("so-")) {
-      setSoItems(soItems.filter((item) => item.id !== id))
+    if (id.startsWith("po-")) {
+      setPoItems(poItems.filter((item) => item.id !== id))
     } else {
       setManualItems(manualItems.filter((item) => item.id !== id))
     }
@@ -225,52 +400,48 @@ export function OutboundForm() {
     }
   }
 
-  const handlePickingListItemsSelected = (selectedItems: OutboundItem[]) => {
-    if (!currentSO) return
+   const handlePickingListItemsSelected = (selectedItems: OutboundItem[]) => {
+    if (!currentPO) return
 
-    // Add a source identifier and ensure unique IDs for SO items
-    const soItemsWithSource = selectedItems.map((item) => ({
+    // Add a source identifier and ensure unique IDs for PO items
+    const poItemsWithSource = selectedItems.map((item) => ({
       ...item,
-      id: item.id.startsWith("so-") ? item.id : `so-${currentSO.id}-${item.id}`,
-      source: "sales-order",
-      soNumber: currentSO.orderNumber, // Add SO number for reference
+      id: item.id.startsWith("po-") ? item.id : `po-${currentPO.id}-${item.id}`,
+      source: "purchase-order",
+      purchaseOrderId: currentPO.id,
+      purchaseOrderNumber: currentPO.orderNumber, // Add PO number for reference
     }))
 
-    // Add these items to the existing SO items
-    setSoItems((prev) => {
-      // Remove any existing items from this SO
-      const filteredItems = prev.filter((item) => !item.id.includes(`so-${currentSO.id}-`))
-      return [...filteredItems, ...soItemsWithSource]
+    // Add these items to the existing PO items
+    setPoItems((prev) => {
+      // Remove any existing items from this PO
+      const filteredItems = prev.filter((item) => !item.id.includes(`po-${currentPO.id}-`))
+      return [...filteredItems, ...poItemsWithSource]
     })
 
-    // Move to the next SO if there is one
-    const currentIndex = selectedSOs.findIndex((so) => so.id === currentSO.id)
-    if (currentIndex < selectedSOs.length - 1) {
-      setCurrentSO(selectedSOs[currentIndex + 1])
+    // Move to the next PO if there is one
+    const currentIndex = selectedPOs.findIndex((po) => po.id === currentPO.id)
+    if (currentIndex < selectedPOs.length - 1) {
+      setCurrentPO(selectedPOs[currentIndex + 1])
     } else {
       setShowPickingList(false)
-      setCurrentSO(null)
+      setCurrentPO(null)
     }
   }
 
-  const handleCancelPickingList = () => {
-    // If we're in the middle of selecting items from multiple SOs,
+ const handleCancelPickingList = () => {
+    // If we're in the middle of selecting items from multiple POs,
     // move to the next one or close if we're done
-    if (currentSO) {
-      const currentIndex = selectedSOs.findIndex((so) => so.id === currentSO.id)
-      if (currentIndex < selectedSOs.length - 1) {
-        setCurrentSO(selectedSOs[currentIndex + 1])
+    if (currentPO) {
+      const currentIndex = selectedPOs.findIndex((po) => po.id === currentPO.id)
+      if (currentIndex < selectedPOs.length - 1) {
+        setCurrentPO(selectedPOs[currentIndex + 1])
       } else {
         setShowPickingList(false)
-        setCurrentSO(null)
+        setCurrentPO(null)
       }
     } else {
       setShowPickingList(false)
-    }
-
-    // If no SO items were selected and manual entry is not enabled, reset to manual entry
-    if (soItems.length === 0 && !isManualEntry) {
-      form.setValue("transactionTypes", ["non-order-based"])
     }
   }
 
@@ -279,37 +450,37 @@ export function OutboundForm() {
     setShowPickingList(true)
   }
 
-  const handleRemoveSO = (soId: string) => {
-    // Remove the SO from selected SOs
-    const updatedSOs = selectedSOs.filter((so) => so.id !== soId)
-    setSelectedSOs(updatedSOs)
+const handleRemoveSO= (poId: string) => {
+    // Remove the PO from selected POs
+    const updatedPOs = selectedPOs.filter((po) => po.id !== poId)
+    setSelectedPOs(updatedPOs)
 
     // Update form values
     form.setValue(
-      "salesOrderIds",
-      updatedSOs.map((so) => so.id),
+      "purchaseOrderIds",
+      updatedPOs.map((po) => po.id),
     )
 
-    // Remove items associated with this SO
-    setSoItems(soItems.filter((item) => !item.id.includes(`so-${soId}-`)))
+    // Remove items associated with this PO
+    setPoItems(poItems.filter((item) => item.purchaseOrderId !== poId))
 
-    // If we removed all SOs, hide the picking list
-    if (updatedSOs.length === 0) {
+    // If we removed all POs, hide the picking list
+    if (updatedPOs.length === 0) {
       setShowPickingList(false)
-      setCurrentSO(null)
-    } else if (currentSO?.id === soId) {
-      // If we removed the current SO, show the first one in the list
-      setCurrentSO(updatedSOs[0])
+      setCurrentPO(null)
+    } else if (currentPO?.id === poId) {
+      // If we removed the current PO, show the first one in the list
+      setCurrentPO(updatedPOs[0])
     }
 
-    // Update customer and reference if needed
-    if (updatedSOs.length === 0 && !isManualEntry) {
-      setCustomerNameInput("")
+    // Update supplier and reference if needed
+    if (updatedPOs.length === 0 && !isManualEntry) {
+      // setSupplierNameInput("")
       setReferenceNumberInput("")
-    } else if (updatedSOs.length === 1) {
-      setReferenceNumberInput(updatedSOs[0].orderNumber)
-    } else if (updatedSOs.length > 1) {
-      setReferenceNumberInput(`Multiple SOs (${updatedSOs.length})`)
+    } else if (updatedPOs.length === 1) {
+      setReferenceNumberInput(updatedPOs[0].orderNumber)
+    } else if (updatedPOs.length > 1) {
+      setReferenceNumberInput(`Multiple POs (${updatedPOs.length})`)
     }
   }
 
@@ -550,7 +721,8 @@ export function OutboundForm() {
 
             {/* Basic Information */}
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField
+
+              {/* <FormField
                 control={form.control}
                 name="customerName"
                 render={({ field }) => (
@@ -576,6 +748,105 @@ export function OutboundForm() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              /> */}
+            {/* Basic Information */}
+              {/* Region Selection */}
+              <FormField
+                control={form.control}
+                name="regionId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Region</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={handleRegionChange}
+                      disabled={isLoadingRegions || regions.length <= 1}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue 
+                            placeholder={
+                              regions.length === 1 
+                                ? regions[0]?.name 
+                                : "Select region"
+                            } 
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {regions.map((region: Region) => (
+                          <SelectItem key={region.id} value={region.id.toString()}>
+                            {region.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {regions.length === 1 && (
+                      <FormDescription>
+                        您被分配到 {regions[0]?.name} 地区，仓库数量: {warehouses.length}
+                      </FormDescription>
+                    )}
+                    {regions.length > 1 && (
+                      <FormDescription>
+                        请选择入库地区
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Warehouse Selection */}
+              <FormField
+                control={form.control}
+                name="warehouseId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Warehouse * ({warehouses.length} 个可选)</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={warehouses.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {warehouses.map((warehouse: Warehouse) => (
+                          <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
+                            {warehouse.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="customerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Customer Name (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={customerNameInput}
+                        onChange={(e) => {
+                          setCustomerNameInput(e.target.value)
+                          field.onChange(e.target.value)
+                        }}
+                        placeholder="Enter customer name (optional)"
+                        disabled={isOrderBased && selectedSOs.length > 0 && !isManualEntry}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -714,7 +985,10 @@ export function OutboundForm() {
             <Button variant="outline" type="button" onClick={() => router("/inventory/outbound")}>
               Cancel
             </Button>
-            <Button type="submit">Create Outbound Transaction</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? "创建中..." : "创建出库交易"}
+            </Button>
           </CardFooter>
         </Card>
       </form>

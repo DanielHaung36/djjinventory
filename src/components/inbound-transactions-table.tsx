@@ -12,16 +12,26 @@ import { useGetInboundListQuery } from "@/features/inventory/inventoryApi"
 export function InboundTransactionsTable() {
   const router = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [selectedInboundId, setSelectedInboundId] = useState<number | null>(null)
   const itemsPerPage = 10
 
+  // 防抖搜索
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
   // 使用真实API获取入库列表（RTK Query会自动处理WebSocket更新）
   const { data: inboundListResponse, isLoading, error, refetch } = useGetInboundListQuery({
     page: currentPage,
     pageSize: itemsPerPage,
-    search: searchQuery || undefined,
+    search: debouncedSearchQuery || undefined,
   })
 
   const inboundTransactions = inboundListResponse?.items || []
@@ -91,13 +101,22 @@ export function InboundTransactionsTable() {
           <Input
             placeholder="搜索ID、参考编号或操作员..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setCurrentPage(1) // 搜索时重置到第一页
+            }}
             className="max-w-sm"
           />
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Wifi className="h-4 w-4 text-green-500" />
           <span>实时更新</span>
+          {searchQuery !== debouncedSearchQuery && (
+            <span className="text-yellow-500">搜索中...</span>
+          )}
+          {debouncedSearchQuery && (
+            <span className="text-blue-500">搜索: "{debouncedSearchQuery}"</span>
+          )}
         </div>
       </div>
 

@@ -78,7 +78,6 @@ export function InboundForm() {
       purchaseOrderIds: [],
       regionId: "",
       warehouseId: "",
-      supplierName: "",
       referenceNumber: "",
       receiptDate: new Date().toISOString().split("T")[0],
       notes: "",
@@ -124,9 +123,9 @@ export function InboundForm() {
   }, [poItems, manualItems])
 
   // Update form values when supplier name input changes
-  useEffect(() => {
-    form.setValue("supplierName", supplierNameInput)
-  }, [supplierNameInput, form])
+  // useEffect(() => {
+  //   form.setValue("supplierName", supplierNameInput)
+  // }, [supplierNameInput, form])
 
   // Update form values when reference number input changes
   useEffect(() => {

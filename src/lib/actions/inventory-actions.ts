@@ -327,10 +327,10 @@ export async function createOutboundTransaction(
 
       // 使用新的手动出库API
       const manualOutboundData = {
-        regionId: "1", // 默认地区，实际应该从表单获取
-        warehouseId: "1", // 默认仓库，实际应该从表单获取
+        regionId: data.regionId, // 从表单获取地区ID
+        warehouseId: data.warehouseId, // 从表单获取仓库ID
         referenceNumber: data.referenceNumber,
-        shipmentDate: new Date().toISOString().split('T')[0], // 今天的日期
+        shipmentDate: data.shipmentDate || new Date().toISOString().split('T')[0], // 使用表单中的日期或今天
         customerName: data.customerName,
         notes: data.notes || undefined,
         items: data.items.filter(item => item.source === "manual").map(item => ({
