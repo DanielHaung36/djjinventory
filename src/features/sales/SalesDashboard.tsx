@@ -1,14 +1,17 @@
 "use client"
 
-import { use, useState } from "react";
-import { Box, Typography, Button } from "@mui/material";
-import { Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Box, Typography, Button, Tabs, Tab, Card, CardContent } from "@mui/material";
+import { Plus, ShoppingCart, Assignment } from "@mui/icons-material";
 import StatsCards from "./StatsCards";
 import OrdersTable from "./OrdersTable";
 import type { DashboardStats } from "./types/dashboard";
 import type { SalesOrder } from "./types/sales-order";
 import CreateOrderForm from "./components/form/create-order-form";
+import ApprovedQuotesPage from "./ApprovedQuotesPage";
+import OrderManagementPage from "./OrderManagementPage";
 import { useNavigate } from "react-router-dom";
+import { orderApi } from "../../api/orderApi";
 
 const mockStats: DashboardStats = {
   totalOrders: 156,

@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
-import { getQuotes, deleteQuote } from "@/lib/services/quote-service"
-import type { Quote } from "@/lib/types/quote"
+import { useGetQuotesQuery, useDeleteQuoteMutation, useGenerateQuotePdfMutation } from "./quotesApi"
+import type { Quote } from "../../lib/types/quote"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { DeleteConfirmationDialog } from "./components/dialogs/delete-confirmation-dialog"
+import { QuoteDetailDialog } from "./components/quote-detail-dialog"
 import { useToast } from "@/hooks/use-toast"
 
 import {
@@ -35,10 +36,8 @@ import { useNavigate } from "react-router-dom"
 export default function QuotesPage() {
   const router = useNavigate()
   const { toast } = useToast()
-  const [quotes, setQuotes] = useState<Quote[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [sortField, setSortField] = useState<keyof Quote>("quoteDate")
+  const [sortField, setSortField] = useState<string>("quoteDate")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
   // Pagination state
@@ -49,27 +48,24 @@ export default function QuotesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null)
 
-  useEffect(() => {
-    const fetchQuotes = async () => {
-      try {
-        const data = await getQuotes()
-        setQuotes(data)
-      } catch (error) {
-        console.error("Failed to fetch quotes:", error)
-        toast({
-          title: "Error",
-          description: "Failed to fetch quotes. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Quote detail dialog state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null)
 
-    fetchQuotes()
-  }, [toast])
+  // RTK Query hooks
+  const { data: quotesResponse, isLoading: loading, error } = useGetQuotesQuery({ 
+    page: currentPage, 
+    limit: itemsPerPage 
+  })
 
-  const handleSort = (field: keyof Quote) => {
+  console.log(quotesResponse);
+  
+  const [deleteQuoteMutation] = useDeleteQuoteMutation()
+
+  // Extract quotes from response
+  const quotes = quotesResponse?.data || []
+
+  const handleSort = (field: string) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
@@ -80,9 +76,9 @@ export default function QuotesPage() {
 
   const filteredQuotes = quotes.filter(
     (quote) =>
-      quote.quoteNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quote.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (quote.salesRep && quote.salesRep.toLowerCase().includes(searchTerm.toLowerCase())),
+      quote.quoteNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quote.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (quote.salesRepUser?.username && quote.salesRepUser.username.toLowerCase().includes(searchTerm.toLowerCase())),
   )
 
   const sortedQuotes = [...filteredQuotes].sort((a, b) => {
@@ -92,21 +88,31 @@ export default function QuotesPage() {
       return sortDirection === "asc" ? dateA - dateB : dateB - dateA
     }
 
-    if (sortField === "amounts") {
-      return sortDirection === "asc" ? a.amounts.total - b.amounts.total : b.amounts.total - a.amounts.total
+    if (sortField === "totalAmount") {
+      return sortDirection === "asc" ? a.totalAmount - b.totalAmount : b.totalAmount - a.totalAmount
     }
 
-    const valueA = String(a[sortField] || "").toLowerCase()
-    const valueB = String(b[sortField] || "").toLowerCase()
+    // For other fields, try to access nested properties
+    let valueA = ""
+    let valueB = ""
+    
+    if (sortField === "customer") {
+      valueA = a.customer?.name?.toLowerCase() || ""
+      valueB = b.customer?.name?.toLowerCase() || ""
+    } else {
+      valueA = String((a as any)[sortField] || "").toLowerCase()
+      valueB = String((b as any)[sortField] || "").toLowerCase()
+    }
 
     return sortDirection === "asc" ? valueA.localeCompare(valueB) : valueB.localeCompare(valueA)
   })
 
-  // Calculate pagination values
-  const totalPages = Math.ceil(sortedQuotes.length / itemsPerPage)
+  // Calculate pagination values - server-side pagination
+  const totalPages = Math.ceil((quotesResponse?.total || 0) / itemsPerPage)
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentQuotes = sortedQuotes.slice(indexOfFirstItem, indexOfLastItem)
+  // For server-side pagination, use the filtered quotes directly
+  const currentQuotes = sortedQuotes
 
   // Handle page changes
   const goToPage = (pageNumber: number) => {
@@ -146,14 +152,19 @@ export default function QuotesPage() {
     }).format(new Date(date))
   }
 
-  const getStatusBadge = (status: Quote["status"]) => {
-    if (status.inStockApproval === "approve") {
-      return <Badge variant="success">Approved</Badge>
-    } else if (status.inStockApproval === "reject") {
+  const getStatusBadge = (status: string) => {
+    if (status === "approved") {
+      return <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200">Approved</Badge>
+    } else if (status === "rejected") {
       return <Badge variant="destructive">Rejected</Badge>
     } else {
-      return <Badge variant="warning">Pending</Badge>
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200">Pending</Badge>
     }
+  }
+
+  const handleQuoteClick = (quoteId: string) => {
+    setSelectedQuoteId(quoteId)
+    setDetailDialogOpen(true)
   }
 
   const handleDeleteClick = (quote: Quote, e: React.MouseEvent) => {
@@ -166,10 +177,7 @@ export default function QuotesPage() {
     if (!quoteToDelete) return
 
     try {
-      await deleteQuote(quoteToDelete.id)
-
-      // Update the quotes list after deletion
-      setQuotes(quotes.filter((q) => q.id !== quoteToDelete.id))
+      await deleteQuoteMutation(quoteToDelete.id).unwrap()
 
       // Show success toast
       toast({
@@ -205,13 +213,26 @@ export default function QuotesPage() {
     router(`/quotes/new?copy=${quoteId}`)
   }
 
-  const handleDownloadPdf = (quote: Quote, e: React.MouseEvent) => {
+  const [downloadPdf] = useGenerateQuotePdfMutation()
+
+  const handleDownloadPdf = async (quote: Quote, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent row click
 
-    toast({
-      title: "PDF Download",
-      description: "PDF download functionality will be implemented soon.",
-    })
+    try {
+      await downloadPdf(quote.id).unwrap()
+      
+      toast({
+        title: "PDF Downloaded",
+        description: `Quote ${quote.quoteNumber} PDF has been downloaded.`,
+      })
+    } catch (error) {
+      console.error("Failed to download PDF:", error)
+      toast({
+        title: "Error", 
+        description: "Failed to download PDF. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -291,14 +312,14 @@ export default function QuotesPage() {
                       <TableRow
                         key={quote.id}
                         className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => router(`/quotes/${quote.id}`)}
+                        onClick={() => handleQuoteClick(quote.id)}
                       >
-                        <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
-                        <TableCell>{quote.customer}</TableCell>
-                        <TableCell>{formatDate(quote.quoteDate)}</TableCell>
-                        <TableCell>{formatCurrency(quote.amounts.total, quote.amounts.currency)}</TableCell>
+                        <TableCell className="font-medium">{quote.quoteNumber || "—"}</TableCell>
+                        <TableCell>{quote.customer?.name || "—"}</TableCell>
+                        <TableCell>{quote.quoteDate ? formatDate(quote.quoteDate) : "—"}</TableCell>
+                        <TableCell>{formatCurrency(quote.totalAmount || 0, quote.currency || "AUD")}</TableCell>
                         <TableCell>{getStatusBadge(quote.status)}</TableCell>
-                        <TableCell>{quote.salesRep || "—"}</TableCell>
+                        <TableCell>{quote.salesRepUser?.username || "—"}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -349,7 +370,7 @@ export default function QuotesPage() {
           )}
 
           {/* Pagination Controls */}
-          {!loading && sortedQuotes.length > 0 && (
+          {!loading && quotes.length > 0 && (
             <div className="flex items-center justify-between mt-4">
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600">Show</span>
@@ -368,8 +389,8 @@ export default function QuotesPage() {
 
               <div className="flex items-center">
                 <span className="text-sm text-gray-600 mr-4">
-                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, sortedQuotes.length)} of{" "}
-                  {sortedQuotes.length}
+                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, quotesResponse?.total || 0)} of{" "}
+                  {quotesResponse?.total || 0}
                 </span>
 
                 <div className="flex items-center space-x-1">
@@ -426,6 +447,16 @@ export default function QuotesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Quote Detail Dialog */}
+      <QuoteDetailDialog
+        quoteId={selectedQuoteId}
+        isOpen={detailDialogOpen}
+        onClose={() => {
+          setDetailDialogOpen(false)
+          setSelectedQuoteId(null)
+        }}
+      />
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog

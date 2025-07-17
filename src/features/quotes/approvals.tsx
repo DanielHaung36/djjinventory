@@ -10,14 +10,12 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, CheckCircle, XCircle, Eye, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { Link } from "react-router-dom";
 import type { Quote, QuoteStatusString } from "@/lib/types/quote"
-import { getQuotes, updateQuoteStatus } from "@/lib/quote-service"
+import { useGetQuotesByStatusQuery, useUpdateQuoteStatusMutation } from './quotesApi'
 import { ApprovalReasonDialog } from "@/components/dialogs/approval-reason-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function QuoteApprovalsPage() {
   const { toast } = useToast()
-  const [quotes, setQuotes] = useState<Quote[]>([])
-  const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<QuoteStatusString | "all">("pending")
   const [sortField, setSortField] = useState<keyof Quote | "amount">("quoteDate")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
@@ -31,25 +29,29 @@ export default function QuoteApprovalsPage() {
   const [currentQuoteForAction, setCurrentQuoteForAction] = useState<Quote | null>(null)
   const [currentActionType, setCurrentActionType] = useState<"approve" | "reject">("approve")
 
+  // RTK Query hooks
+  const { data: quotesData, isLoading: loading, error: quotesError } = useGetQuotesByStatusQuery({
+    status: filterStatus,
+    page: currentPage,
+    limit: itemsPerPage,
+  })
+  
+  const [updateQuoteStatusMutation] = useUpdateQuoteStatusMutation()
+  
+  // Extract quotes from RTK Query response
+  const quotes = quotesData?.data || []
+  const totalQuotes = quotesData?.total || 0
+
+  // Error handling for RTK Query
   useEffect(() => {
-    const fetchQuotesData = async () => {
-      setLoading(true)
-      try {
-        const data = await getQuotes()
-        setQuotes(data)
-      } catch (error) {
-        console.error("Failed to fetch quotes:", error)
-        toast({
-          title: "Error",
-          description: "Failed to fetch quotes. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+    if (quotesError) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch quotes. Please try again.",
+        variant: "destructive",
+      })
     }
-    fetchQuotesData()
-  }, [toast])
+  }, [quotesError, toast])
 
   const handleSort = (field: keyof Quote | "amount" | "requester") => {
     if (sortField === field) {
@@ -61,25 +63,22 @@ export default function QuoteApprovalsPage() {
     setCurrentPage(1) // Reset to first page on sort
   }
 
-  const filteredQuotes = useMemo(() => {
-    let filtered = quotes
-    if (filterStatus !== "all") {
-      filtered = quotes.filter((quote) => quote.status.inStockApproval === filterStatus)
-    }
-    return filtered
-  }, [quotes, filterStatus])
-
-  const sortedAndPaginatedQuotes = useMemo(() => {
-    const sorted = [...filteredQuotes].sort((a, b) => {
+  // Since RTK Query handles filtering and pagination on the server side,
+  // we can use the quotes directly. For now, we'll handle sorting on the client side.
+  const sortedQuotes = useMemo(() => {
+    const sorted = [...quotes].sort((a, b) => {
       let valA: any
       let valB: any
 
       if (sortField === "amount") {
-        valA = a.amounts.total
-        valB = b.amounts.total
+        valA = a.amounts?.total || 0
+        valB = b.amounts?.total || 0
       } else if (sortField === "quoteDate") {
         valA = new Date(a.quoteDate).getTime()
         valB = new Date(b.quoteDate).getTime()
+      } else if (sortField === "customer") {
+        valA = String(a.customer?.name || a.customer || "").toLowerCase()
+        valB = String(b.customer?.name || b.customer || "").toLowerCase()
       } else {
         valA = String(a[sortField as keyof Quote] || "").toLowerCase()
         valB = String(b[sortField as keyof Quote] || "").toLowerCase()
@@ -90,11 +89,10 @@ export default function QuoteApprovalsPage() {
       return 0
     })
 
-    const startIndex = (currentPage - 1) * itemsPerPage
-    return sorted.slice(startIndex, startIndex + itemsPerPage)
-  }, [filteredQuotes, sortField, sortDirection, currentPage, itemsPerPage])
+    return sorted
+  }, [quotes, sortField, sortDirection])
 
-  const totalPages = Math.ceil(filteredQuotes.length / itemsPerPage)
+  const totalPages = Math.ceil(totalQuotes / itemsPerPage)
 
   const openApprovalDialog = (quote: Quote, action: "approve" | "reject") => {
     setCurrentQuoteForAction(quote)
@@ -106,18 +104,22 @@ export default function QuoteApprovalsPage() {
     if (!currentQuoteForAction) return
 
     try {
-      await updateQuoteStatus(currentQuoteForAction.id, currentActionType, reason)
-      setQuotes((prevQuotes) =>
-        prevQuotes.map((q) =>
-          q.id === currentQuoteForAction.id
-            ? { ...q, status: { ...q.status, inStockApproval: currentActionType, approvalReason: reason } }
-            : q,
-        ),
-      )
+      const statusMap: Record<string, string> = {
+        approve: 'approved',
+        reject: 'rejected'
+      }
+      
+      await updateQuoteStatusMutation({
+        id: currentQuoteForAction.id.toString(),
+        status: statusMap[currentActionType] || currentActionType,
+        reason,
+        userId: 1, // TODO: Get actual user ID from auth context
+      }).unwrap()
+      
       toast({
         title: `Quote ${currentActionType === "approve" ? "Approved" : "Rejected"}`,
-        description: `Quote ${currentQuoteForAction.quoteNumber} has been ${currentActionType}. Reason: ${reason || "N/A"}`,
-        variant: currentActionType === "approve" ? "success" : "destructive",
+        description: `Quote ${currentQuoteForAction.quoteNumber} has been ${currentActionType === "approve" ? "approved" : "rejected"}. ${reason ? `Reason: ${reason}` : ""}`,
+        variant: currentActionType === "approve" ? "default" : "destructive",
       })
     } catch (error) {
       console.error("Failed to update status:", error)
@@ -132,13 +134,13 @@ export default function QuoteApprovalsPage() {
     }
   }
 
-  const getStatusBadge = (status: QuoteStatusString, reason?: string) => {
+  const getStatusBadge = (status: string, reason?: string) => {
     const badge = (
       <>
-        {status === "approve" && <Badge variant="success">Approved</Badge>}
-        {status === "reject" && <Badge variant="destructive">Rejected</Badge>}
-        {status === "pending" && <Badge variant="warning">Pending</Badge>}
-        {!["approve", "reject", "pending"].includes(status) && <Badge variant="secondary">{status}</Badge>}
+        {status === "approved" && <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200">Approved</Badge>}
+        {status === "rejected" && <Badge variant="destructive">Rejected</Badge>}
+        {status === "pending" && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200">Pending</Badge>}
+        {!["approved", "rejected", "pending"].includes(status) && <Badge variant="secondary">{status}</Badge>}
       </>
     )
     if (reason) {
@@ -207,8 +209,8 @@ export default function QuoteApprovalsPage() {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approve">Approved</SelectItem>
-                <SelectItem value="reject">Rejected</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
             <div className="flex items-center space-x-2 text-sm">
@@ -247,25 +249,25 @@ export default function QuoteApprovalsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAndPaginatedQuotes.length === 0 ? (
+                  {sortedQuotes.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="h-24 text-center">
                         No quotes found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    sortedAndPaginatedQuotes.map((quote) => (
+                    sortedQuotes.map((quote) => (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
-                        <TableCell>{quote.customer}</TableCell>
-                        <TableCell>{quote.requester}</TableCell>
+                        <TableCell>{quote.customer?.name || quote.customer || "N/A"}</TableCell>
+                        <TableCell>{quote.salesRepUser?.username || quote.requester || "N/A"}</TableCell>
                         <TableCell>{formatDate(quote.quoteDate)}</TableCell>
-                        <TableCell>{formatCurrency(quote.amounts.total, quote.amounts.currency)}</TableCell>
+                        <TableCell>{formatCurrency(quote.amounts?.total || 0, quote.amounts?.currency || "AUD")}</TableCell>
                         <TableCell>
-                          {getStatusBadge(quote.status.inStockApproval, quote.status.approvalReason)}
+                          {getStatusBadge(quote.status || "pending")}
                         </TableCell>
                         <TableCell className="text-right space-x-1">
-                          {quote.status.inStockApproval === "pending" && (
+                          {(quote.status || "pending") === "pending" && (
                             <>
                               <Button
                                 variant="outline"
@@ -300,11 +302,11 @@ export default function QuoteApprovalsPage() {
             </div>
           )}
 
-          {!loading && filteredQuotes.length > itemsPerPage && (
+          {!loading && totalQuotes > itemsPerPage && (
             <div className="flex items-center justify-between mt-4">
               <span className="text-sm text-muted-foreground">
-                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredQuotes.length)} to{" "}
-                {Math.min(currentPage * itemsPerPage, filteredQuotes.length)} of {filteredQuotes.length} entries
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalQuotes)} to{" "}
+                {Math.min(currentPage * itemsPerPage, totalQuotes)} of {totalQuotes} entries
               </span>
               <div className="flex space-x-2">
                 <Button

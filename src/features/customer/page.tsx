@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -36,7 +37,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Warehouse,
-  CompassIcon
+  CompassIcon,
+  CreditCard
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -128,6 +130,16 @@ interface PaginationInfo {
   totalPages: number
 }
 
+// 地址验证schema
+const addressSchema = z.object({
+  line1: z.string().min(1, "Address line 1 is required"),
+  line2: z.string().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  postcode: z.string().min(1, "Postcode is required"),
+  country: z.string().min(1, "Country is required"),
+})
+
 // 客户数据验证模式
 const customerSchema = z.object({
   id: z.number().optional(),
@@ -136,12 +148,21 @@ const customerSchema = z.object({
   storeId: z.number().min(1, "Store is required"),
   regionId: z.number().optional(), // 改为可选，会自动设置
   companyId: z.number().optional(), // 改为可选，会自动设置
+  
+  // 详细地址字段
+  deliveryAddress: addressSchema,
+  billingAddress: addressSchema,
+  sameAsDelivery: z.boolean().default(false),
+  
+  // 保留原地址字段以兼容
   address: z.string().optional(),
+  
   type: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   abn: z.string().optional(),
   contact: z.string().optional(),
+  company: z.string().optional(),
 })
 
 type CustomerFormData = z.infer<typeof customerSchema>
@@ -372,12 +393,30 @@ export default function CustomerManagement() {
     defaultValues: {
       name: "",
       storeId: 1,
-      address: "",
+      deliveryAddress: {
+        line1: "",
+        line2: "",
+        city: "",
+        state: "",
+        postcode: "",
+        country: "Australia",
+      },
+      billingAddress: {
+        line1: "",
+        line2: "",
+        city: "",
+        state: "",
+        postcode: "",
+        country: "Australia",
+      },
+      sameAsDelivery: false,
+      address: "", // 保留兼容性
       type: "retail",
       phone: "",
       email: "",
       abn: "",
       contact: "",
+      company: "",
     },
   })
   const selectedStoreId = useWatch({ control: form.control, name: 'storeId' });
@@ -485,6 +524,28 @@ export default function CustomerManagement() {
     }))
   }, [filteredCustomers.length, pagination.pageSize])
 
+  // 监控"与快递地址一致"复选框，自动填充账单地址
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "sameAsDelivery" && value.sameAsDelivery) {
+        // 当选择"账单地址与快递地址一致"时，复制快递地址到账单地址
+        const deliveryAddress = value.deliveryAddress
+        if (deliveryAddress) {
+          form.setValue("billingAddress", {
+            line1: deliveryAddress.line1 || "",
+            line2: deliveryAddress.line2 || "",
+            city: deliveryAddress.city || "",
+            state: deliveryAddress.state || "",
+            postcode: deliveryAddress.postcode || "",
+            country: deliveryAddress.country || "",
+          })
+        }
+      }
+    })
+    
+    return () => subscription.unsubscribe()
+  }, [form])
+
   // 分页控制
   const handlePageChange = (page: number) => {
     setPagination((prev) => ({ ...prev, currentPage: page }))
@@ -511,16 +572,32 @@ export default function CustomerManagement() {
       const newCustomer: Customer = {
         ...data,
         id: Math.max(...customers.map((c) => c.id || 0)) + 1,
-        // region_id: selectedStore!.region_id,
-        // companyId: selectedStore!.companyId,
         store: selectedStore!,
         store_id: selectedStore!.id,
-        // region: selectedRegion!,
-        // company: selectedCompany!,
         version: 1,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         is_deleted: false,
+        
+        // 映射新的地址字段到Customer接口期望的字段
+        delivery_address_line1: data.deliveryAddress.line1,
+        delivery_address_line2: data.deliveryAddress.line2,
+        delivery_city: data.deliveryAddress.city,
+        delivery_state: data.deliveryAddress.state,
+        delivery_postcode: data.deliveryAddress.postcode,
+        delivery_country: data.deliveryAddress.country,
+        
+        billing_address_line1: data.billingAddress.line1,
+        billing_address_line2: data.billingAddress.line2,
+        billing_city: data.billingAddress.city,
+        billing_state: data.billingAddress.state,
+        billing_postcode: data.billingAddress.postcode,
+        billing_country: data.billingAddress.country,
+        
+        same_as_delivery: data.sameAsDelivery,
+        
+        // 保留原address字段为delivery address line1以兼容
+        address: data.deliveryAddress.line1,
       }
 
       console.log(newCustomer);
@@ -596,6 +673,26 @@ const handleEditCustomer = async (data: CustomerFormData) => {
       store_id:    selectedStore.id,    // 外键
       version:     selectedCustomer.version + 1,
       updated_at:  new Date().toISOString(),
+      
+      // 映射新的地址字段到Customer接口期望的字段
+      delivery_address_line1: data.deliveryAddress.line1,
+      delivery_address_line2: data.deliveryAddress.line2,
+      delivery_city: data.deliveryAddress.city,
+      delivery_state: data.deliveryAddress.state,
+      delivery_postcode: data.deliveryAddress.postcode,
+      delivery_country: data.deliveryAddress.country,
+      
+      billing_address_line1: data.billingAddress.line1,
+      billing_address_line2: data.billingAddress.line2,
+      billing_city: data.billingAddress.city,
+      billing_state: data.billingAddress.state,
+      billing_postcode: data.billingAddress.postcode,
+      billing_country: data.billingAddress.country,
+      
+      same_as_delivery: data.sameAsDelivery,
+      
+      // 保留原address字段为delivery address line1以兼容
+      address: data.deliveryAddress.line1,
     }
 
     // ③ 调用 RTK Query 的 mutation
@@ -681,17 +778,36 @@ const handleEditCustomer = async (data: CustomerFormData) => {
   const openEditDialog = (customer: Customer) => {
     setSelectedCustomer(customer)
     form.reset({
-      code: customer.code,
       name: customer.name,
-      storeId: customer.storeId,
-      regionId: customer.regionId,
-      companyId: customer.companyId,
-      address: customer.address || "",
+      storeId: customer.store_id,
       type: customer.type || "retail",
       phone: customer.phone || "",
       email: customer.email || "",
       abn: customer.abn || "",
       contact: customer.contact || "",
+      company: customer.company || "",
+      
+      // 填充详细地址字段
+      deliveryAddress: {
+        line1: customer.delivery_address_line1 || "",
+        line2: customer.delivery_address_line2 || "",
+        city: customer.delivery_city || "",
+        state: customer.delivery_state || "",
+        postcode: customer.delivery_postcode || "",
+        country: customer.delivery_country || "Australia",
+      },
+      billingAddress: {
+        line1: customer.billing_address_line1 || "",
+        line2: customer.billing_address_line2 || "",
+        city: customer.billing_city || "",
+        state: customer.billing_state || "",
+        postcode: customer.billing_postcode || "",
+        country: customer.billing_country || "Australia",
+      },
+      sameAsDelivery: customer.same_as_delivery || false,
+      
+      // 保留原地址字段以兼容
+      address: customer.address || "",
     })
     setIsEditDialogOpen(true)
   }
@@ -737,7 +853,7 @@ const handleEditCustomer = async (data: CustomerFormData) => {
               Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Customer</DialogTitle>
             </DialogHeader>
@@ -927,22 +1043,242 @@ const handleEditCustomer = async (data: CustomerFormData) => {
                     )}
                   />
                 </div>
+                {/* Delivery Address Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Delivery Address
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="deliveryAddress.line1"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address Line 1 *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="123 Main Street" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="deliveryAddress.line2"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address Line 2</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Unit/Suite (optional)" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="deliveryAddress.city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Perth" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="deliveryAddress.state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select state" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="NSW">NSW</SelectItem>
+                              <SelectItem value="VIC">VIC</SelectItem>
+                              <SelectItem value="QLD">QLD</SelectItem>
+                              <SelectItem value="WA">WA</SelectItem>
+                              <SelectItem value="SA">SA</SelectItem>
+                              <SelectItem value="TAS">TAS</SelectItem>
+                              <SelectItem value="ACT">ACT</SelectItem>
+                              <SelectItem value="NT">NT</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="deliveryAddress.postcode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Postcode *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="6000" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="deliveryAddress.country"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Australia" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Same as Delivery Checkbox */}
                 <FormField
                   control={form.control}
-                  name="address"
+                  name="sameAsDelivery"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Address
-                      </FormLabel>
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                       <FormControl>
-                        <Textarea placeholder="Enter address" rows={3} {...field} />
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
-                      <FormMessage />
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Billing address is the same as delivery address
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Check this if the billing address is identical to the delivery address
+                        </p>
+                      </div>
                     </FormItem>
                   )}
                 />
+
+                {/* Billing Address - Only show if not same as delivery */}
+                {!form.watch("sameAsDelivery") && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Billing Address</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="billingAddress.line1"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address Line 1 *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="456 Business Avenue" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="billingAddress.line2"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address Line 2</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Unit/Suite (optional)" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="billingAddress.city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Melbourne" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="billingAddress.state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select state" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="NSW">NSW</SelectItem>
+                                <SelectItem value="VIC">VIC</SelectItem>
+                                <SelectItem value="QLD">QLD</SelectItem>
+                                <SelectItem value="WA">WA</SelectItem>
+                                <SelectItem value="SA">SA</SelectItem>
+                                <SelectItem value="TAS">TAS</SelectItem>
+                                <SelectItem value="ACT">ACT</SelectItem>
+                                <SelectItem value="NT">NT</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="billingAddress.postcode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postcode *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="3000" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="billingAddress.country"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Australia" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                     Cancel
@@ -1390,22 +1726,223 @@ const handleEditCustomer = async (data: CustomerFormData) => {
                       )}
                     />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          Address
-                        </FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Enter address" rows={3} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Delivery Address Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Delivery Address
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="deliveryAddress.line1"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address Line 1 *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="123 Main Street" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="deliveryAddress.line2"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address Line 2</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Unit/Suite (optional)" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="deliveryAddress.city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Perth" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="deliveryAddress.state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="WA" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="deliveryAddress.postcode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Postcode *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="6000" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="deliveryAddress.country"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Australia" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Same as Delivery Address Checkbox */}
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="sameAsDelivery"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked)
+                                if (checked) {
+                                  // Auto-fill billing address with delivery address
+                                  const deliveryData = form.getValues("deliveryAddress")
+                                  form.setValue("billingAddress", deliveryData)
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Billing address is the same as delivery address
+                            </FormLabel>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Billing Address Section */}
+                  {!form.watch("sameAsDelivery") && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium flex items-center gap-2">
+                        <CreditCard className="h-5 w-5" />
+                        Billing Address
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="billingAddress.line1"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address Line 1 *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="123 Main Street" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="billingAddress.line2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address Line 2</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Unit/Suite (optional)" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="billingAddress.city"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Perth" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="billingAddress.state"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>State *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="WA" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="billingAddress.postcode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Postcode *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="6000" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="billingAddress.country"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Australia" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1486,9 +2023,51 @@ const handleEditCustomer = async (data: CustomerFormData) => {
                     <dd className="mt-1 text-sm text-gray-900">{selectedCustomer.abn || "—"}</dd>
                   </div>
                   <div className="sm:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Address</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{selectedCustomer.address || "—"}</dd>
+                    <dt className="text-sm font-medium text-gray-500">Delivery Address</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {selectedCustomer.delivery_address_line1 ? (
+                        <div className="space-y-1">
+                          <div>{selectedCustomer.delivery_address_line1}</div>
+                          {selectedCustomer.delivery_address_line2 && (
+                            <div>{selectedCustomer.delivery_address_line2}</div>
+                          )}
+                          <div>
+                            {selectedCustomer.delivery_city}, {selectedCustomer.delivery_state} {selectedCustomer.delivery_postcode}
+                          </div>
+                          <div>{selectedCustomer.delivery_country}</div>
+                        </div>
+                      ) : (
+                        selectedCustomer.address || "—"
+                      )}
+                    </dd>
                   </div>
+                  
+                  {!selectedCustomer.same_as_delivery && selectedCustomer.billing_address_line1 && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-gray-500">Billing Address</dt>
+                      <dd className="mt-1 text-sm text-gray-900">
+                        <div className="space-y-1">
+                          <div>{selectedCustomer.billing_address_line1}</div>
+                          {selectedCustomer.billing_address_line2 && (
+                            <div>{selectedCustomer.billing_address_line2}</div>
+                          )}
+                          <div>
+                            {selectedCustomer.billing_city}, {selectedCustomer.billing_state} {selectedCustomer.billing_postcode}
+                          </div>
+                          <div>{selectedCustomer.billing_country}</div>
+                        </div>
+                      </dd>
+                    </div>
+                  )}
+                  
+                  {selectedCustomer.same_as_delivery && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-gray-500">Billing Address</dt>
+                      <dd className="mt-1 text-sm text-gray-900 text-muted-foreground">
+                        Same as delivery address
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               </div>
 

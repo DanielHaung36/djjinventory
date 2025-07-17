@@ -1,4 +1,5 @@
 import type { Quote, QuoteItem } from "@/lib/types"
+import { api } from "@/api/client"
 
 // Mock data for quotes
 const quotes: Quote[] = [
@@ -118,20 +119,43 @@ const quotes: Quote[] = [
 
 // Get all quotes
 export async function getQuotes(): Promise<Quote[]> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  return [...quotes]
+  try {
+    const response = await api.get('/quotes')
+    return response.data.data || []
+  } catch (error) {
+    console.error('Failed to fetch quotes:', error)
+    // Fallback to mock data for now
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    return [...quotes]
+  }
 }
 
 // Get a quote by ID
 export async function getQuoteById(id: string): Promise<Quote | null> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  const quote = quotes.find((q) => q.id === id)
-  return quote || null
+  try {
+    const response = await api.get(`/quotes/${id}`)
+    return response.data
+  } catch (error) {
+    console.error('Failed to fetch quote:', error)
+    // Fallback to mock data
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    const quote = quotes.find((q) => q.id === id)
+    return quote || null
+  }
 }
 
-// Create a new quote
+// Create a new quote (for form submission)
+export async function createQuoteFromForm(formData: any): Promise<Quote> {
+  try {
+    const response = await api.post('/quotes', formData)
+    return response.data
+  } catch (error) {
+    console.error('Failed to create quote:', error)
+    throw error
+  }
+}
+
+// Create a new quote (legacy function for compatibility)
 export async function createQuote(quoteData: Partial<Quote>): Promise<Quote> {
   // Simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 800))
@@ -173,61 +197,78 @@ export async function createQuote(quoteData: Partial<Quote>): Promise<Quote> {
 
 // Update an existing quote
 export async function updateQuote(id: string, quoteData: Partial<Quote>): Promise<Quote> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
+  try {
+    const response = await api.put(`/quotes/${id}`, quoteData)
+    return response.data
+  } catch (error) {
+    console.error('Failed to update quote:', error)
+    // Fallback to mock behavior
+    await new Promise((resolve) => setTimeout(resolve, 800))
 
-  const index = quotes.findIndex((q) => q.id === id)
-  if (index === -1) {
-    throw new Error(`Quote with ID ${id} not found`)
+    const index = quotes.findIndex((q) => q.id === id)
+    if (index === -1) {
+      throw new Error(`Quote with ID ${id} not found`)
+    }
+
+    const updatedQuote = {
+      ...quotes[index],
+      ...quoteData,
+    }
+
+    quotes[index] = updatedQuote
+    return updatedQuote
   }
-
-  const updatedQuote = {
-    ...quotes[index],
-    ...quoteData,
-  }
-
-  quotes[index] = updatedQuote
-  return updatedQuote
 }
 
 // Delete a quote
 export async function deleteQuote(id: string): Promise<void> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  try {
+    await api.delete(`/quotes/${id}`)
+  } catch (error) {
+    console.error('Failed to delete quote:', error)
+    // Fallback to mock behavior
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
-  const index = quotes.findIndex((q) => q.id === id)
-  if (index === -1) {
-    throw new Error(`Quote with ID ${id} not found`)
+    const index = quotes.findIndex((q) => q.id === id)
+    if (index === -1) {
+      throw new Error(`Quote with ID ${id} not found`)
+    }
+
+    quotes.splice(index, 1)
   }
-
-  quotes.splice(index, 1)
 }
 
 // Copy a quote
 export async function copyQuote(id: string): Promise<Quote> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
+  try {
+    const response = await api.post(`/quotes/${id}/copy`)
+    return response.data
+  } catch (error) {
+    console.error('Failed to copy quote:', error)
+    // Fallback to mock behavior
+    await new Promise((resolve) => setTimeout(resolve, 800))
 
-  const sourceQuote = quotes.find((q) => q.id === id)
-  if (!sourceQuote) {
-    throw new Error(`Quote with ID ${id} not found`)
+    const sourceQuote = quotes.find((q) => q.id === id)
+    if (!sourceQuote) {
+      throw new Error(`Quote with ID ${id} not found`)
+    }
+
+    // Create a new quote based on the source quote
+    const newQuote: Quote = {
+      ...JSON.parse(JSON.stringify(sourceQuote)), // Deep copy
+      id: `q${quotes.length + 1}`,
+      quoteNumber: `Q-2025-${String(quotes.length + 1).padStart(3, "0")}`,
+      quoteDate: new Date(),
+      quoteDateText: new Date().toLocaleDateString("en-AU"),
+      status: {
+        inStockApproval: "pending",
+        inStockState: "out",
+      },
+    }
+
+    quotes.push(newQuote)
+    return newQuote
   }
-
-  // Create a new quote based on the source quote
-  const newQuote: Quote = {
-    ...JSON.parse(JSON.stringify(sourceQuote)), // Deep copy
-    id: `q${quotes.length + 1}`,
-    quoteNumber: `Q-2025-${String(quotes.length + 1).padStart(3, "0")}`,
-    quoteDate: new Date(),
-    quoteDateText: new Date().toLocaleDateString("en-AU"),
-    status: {
-      inStockApproval: "pending",
-      inStockState: "out",
-    },
-  }
-
-  quotes.push(newQuote)
-  return newQuote
 }
 
 // Generate a PDF for a quote

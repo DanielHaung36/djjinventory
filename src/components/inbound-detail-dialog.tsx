@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { useGetTransactionDetailQuery } from "@/features/inventory/inventoryApi"
+import { useGetInboundDetailQuery } from "@/features/inventory/inventoryApi"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -87,7 +87,6 @@ interface InboundDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   inboundId: number | null
-  transactionType?: 'IN' | 'OUT'
   onRefresh?: () => void
 }
 
@@ -95,35 +94,26 @@ export function InboundDetailDialog({
   open, 
   onOpenChange, 
   inboundId,
-  transactionType = 'IN',
   onRefresh 
 }: InboundDetailDialogProps) {
   const [selectedDocument, setSelectedDocument] = useState<DocumentPreviewData | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   
-  // 使用通用事务详情API调用
-  const { data: inboundDetail, isLoading, error } = useGetTransactionDetailQuery(
-    { id: inboundId || 0, type: transactionType },
+  // 使用真实API调用
+  const { data: inboundDetail, isLoading, error } = useGetInboundDetailQuery(
+    inboundId || 0,
     { skip: !inboundId || inboundId <= 0 }
   )
-
+  
   // 调试日志
   console.log('📦 [InboundDetailDialog] State:', {
     inboundId,
-    transactionType,
     isLoading,
-    error: error ? {
-      status: error?.status,
-      data: error?.data,
-      error: error?.error,
-      message: error?.message,
-      fullError: error
-    } : null,
+    error,
     hasData: !!inboundDetail,
     dataKeys: inboundDetail ? Object.keys(inboundDetail) : [],
     documentsCount: inboundDetail?.documents?.length || 0,
-    itemsCount: inboundDetail?.items?.length || 0,
-    apiUrl: `/api/inventory/inbound/detail/${inboundId}`
+    itemsCount: inboundDetail?.items?.length || 0
   });
 
   if (inboundDetail?.documents) {
@@ -267,10 +257,9 @@ export function InboundDetailDialog({
     }
   }
 
-  // 移除这个条件渲染，让对话框始终可以显示
-  // if (!inboundDetail && !isLoading) {
-  //   return null
-  // }
+  if (!inboundDetail && !isLoading) {
+    return null
+  }
 
   return (
     <>
@@ -289,42 +278,6 @@ export function InboundDetailDialog({
           {isLoading ? (
             <div className="flex items-center justify-center h-96">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-2">加载中...</span>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center h-96 text-center">
-              <div className="text-red-500 mb-4">
-                <FileText className="h-12 w-12 mx-auto mb-2" />
-                <p className="text-lg font-medium">加载失败</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  入库详情ID: {inboundId} 
-                </p>
-                <div className="text-sm text-red-500 mt-2 space-y-1">
-                  <p>错误状态: {error?.status || 'N/A'}</p>
-                  <p>请求URL: /api/inventory/inbound/detail/{inboundId}</p>
-                  {error?.data && (
-                    <pre className="text-xs bg-red-50 p-2 rounded mt-2 max-h-32 overflow-auto">
-                      {JSON.stringify(error.data, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => window.location.reload()}
-              >
-                重新加载
-              </Button>
-            </div>
-          ) : !inboundDetail ? (
-            <div className="flex flex-col items-center justify-center h-96 text-center">
-              <div className="text-muted-foreground mb-4">
-                <FileText className="h-12 w-12 mx-auto mb-2" />
-                <p className="text-lg font-medium">暂无数据</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  入库详情ID: {inboundId}
-                </p>
-              </div>
             </div>
           ) : (
             <Tabs defaultValue="overview" className="w-full">
@@ -467,7 +420,7 @@ export function InboundDetailDialog({
                           <TableCell className="font-mono">{item.djjCode}</TableCell>
                           <TableCell className="font-medium">{item.productName}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{item.category || '未分类'}</Badge>
+                            <Badge variant="outline">{item.category}</Badge>
                           </TableCell>
                           <TableCell className="text-center">{item.quantity || 0}</TableCell>
                           <TableCell>¥{(item.unitPrice || 0).toFixed(2)}</TableCell>

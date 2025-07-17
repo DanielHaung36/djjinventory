@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { getQuoteById, updateQuote, calculateQuoteTotals } from "@/lib/services/quote-service"
+import { useGetQuoteByIdQuery, useUpdateQuoteMutation } from '../../quotesApi'
 import type { Quote, QuoteItem } from "@/lib/types/quote"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,14 +35,19 @@ const formSchema = z.object({
 })
 
 export default function EditQuotePage() {
- const navigate = useNavigate()
+  const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const [quote, setQuote] = useState<Quote | null>(null)
   const [items, setItems] = useState<QuoteItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  
+  // 使用RTK Query获取quote数据
+  const { data: quote, isLoading: loading, error: queryError } = useGetQuoteByIdQuery(id ?? '', {
+    skip: !id,
+  })
+  
+  // 使用RTK Query更新quote
+  const [updateQuoteMutation, { isLoading: submitting }] = useUpdateQuoteMutation()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -65,50 +70,39 @@ export default function EditQuotePage() {
   })
 
   useEffect(() => {
-    const fetchQuote = async () => {
-      try {
-        setLoading(true)
-        const data = await getQuoteById(id)
-        if (data) {
-          setQuote(data)
-          setItems(data.items || [])
+    if (quote) {
+      setItems(quote.items || [])
 
-          // Format date for input field
-          const formattedDate = data.quoteDate
-            ? new Date(data.quoteDate).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0]
+      // Format date for input field
+      const formattedDate = quote.quoteDate
+        ? new Date(quote.quoteDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0]
 
-          // Set form values
-          form.reset({
-            quoteNumber: data.quoteNumber,
-            customer: data.customer,
-            customerABN: data.customerABN || "",
-            phone: data.phone || "",
-            email: data.email || "",
-            quoteDate: formattedDate,
-            salesRep: data.salesRep || "",
-            store: data.store || "",
-            warehouse: data.warehouse || "",
-            currency: data.amounts.currency,
-            companyName: data.company.name,
-            companyABN: data.company.abn || "",
-            remarks: data.remarks?.[0]?.general || "",
-            warrantyRemarks: data.remarks?.[0]?.warrantyAndSpecial || "",
-          })
-        } else {
-          setError("Quote not found")
-          navigate("/quotes")
-        }
-      } catch (error) {
-        console.error("Failed to fetch quote:", error)
-        setError("Failed to load quote data")
-      } finally {
-        setLoading(false)
-      }
+      // Set form values
+      form.reset({
+        quoteNumber: quote.quoteNumber,
+        customer: quote.customer?.name || "",
+        customerABN: quote.customerABN || "",
+        phone: quote.phone || "",
+        email: quote.email || "",
+        quoteDate: formattedDate,
+        salesRep: quote.salesRepUser?.username || "",
+        store: quote.store?.name || "",
+        warehouse: "",
+        currency: quote.amounts?.currency || "AUD",
+        companyName: quote.company?.name || "",
+        companyABN: quote.company?.abn || "",
+        remarks: quote.remarks?.[0]?.general || "",
+        warrantyRemarks: quote.remarks?.[0]?.warrantyAndSpecial || "",
+      })
     }
-
-    fetchQuote()
-  }, [id, navigate, form])
+  }, [quote, form])
+  
+  useEffect(() => {
+    if (queryError) {
+      setError("Failed to load quote data")
+    }
+  }, [queryError])
 
   const addItem = () => {
     setItems([
@@ -119,6 +113,8 @@ export default function EditQuotePage() {
         unit: "unit",
         unitPrice: 0,
         totalPrice: 0,
+        discount: 0,
+        goodsNature: "contract",
       },
     ])
   }
@@ -149,54 +145,57 @@ export default function EditQuotePage() {
       return
     }
 
+    if (!quote) {
+      setError("Quote data not available")
+      return
+    }
+
     try {
-      setSubmitting(true)
       setError(null)
 
-      const { subTotal, gstTotal, total } = calculateQuoteTotals(items)
-
-      if (!quote) {
-        throw new Error("Quote data not available")
-      }
-
-      const quoteData: Partial<Quote> = {
-        quoteNumber: values.quoteNumber,
-        customer: values.customer,
-        customerABN: values.customerABN || undefined,
-        phone: values.phone || undefined,
-        email: values.email || undefined,
-        amounts: {
-          subTotal,
-          gstTotal,
-          total,
-          currency: values.currency,
-        },
-        quoteDate: new Date(values.quoteDate),
-        quoteDateText: new Date(values.quoteDate).toLocaleDateString("en-AU"),
-        items,
-        salesRep: values.salesRep || undefined,
-        store: values.store || undefined,
-        warehouse: values.warehouse || undefined,
-        company: {
-          name: values.companyName,
-          abn: values.companyABN || undefined,
-          // Preserve other company fields
-          address: quote.company.address,
-          email: quote.company.email,
-          phone: quote.company.phone,
-        },
-        remarks: [
-          {
-            general: values.remarks || undefined,
-            warrantyAndSpecial: values.warrantyRemarks || undefined,
-            // Preserve other remarks fields
-            feedbackLoop: quote.remarks?.[0]?.feedbackLoop,
-            inStockNote: quote.remarks?.[0]?.inStockNote,
+      const updateData = {
+        customer: {
+          id: quote.customer?.id,
+          name: values.customer,
+          abn: values.customerABN || "",
+          contact: values.customer,
+          phone: values.phone || "",
+          email: values.email || "",
+          storeId: quote.store?.id || 1,
+          deliveryAddress: quote.deliveryAddress || {
+            line1: "",
+            line2: "",
+            city: "",
+            state: "",
+            postcode: "",
+            country: "",
           },
-        ],
+          billingAddress: quote.billingAddress || {
+            line1: "",
+            line2: "",
+            city: "",
+            state: "",
+            postcode: "",
+            country: "",
+          },
+          sameAsDelivery: true,
+        },
+        items: items.map(item => ({
+          productId: item.productId,
+          description: item.description,
+          detailDescription: item.detailDescription || "",
+          unit: item.unit,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount || 0,
+          goodsNature: item.goodsNature || "contract",
+        })),
+        depositAmount: 0,
+        remarks: values.remarks || "",
+        warrantyNotes: values.warrantyRemarks || "",
       }
 
-      await updateQuote(id, quoteData)
+      await updateQuoteMutation({ id: id!, data: updateData }).unwrap()
       setSuccess("Quote updated successfully")
 
       // Navigate back to quote details after a short delay
@@ -206,13 +205,13 @@ export default function EditQuotePage() {
     } catch (error) {
       console.error("Failed to update quote:", error)
       setError("Failed to update quote. Please try again.")
-    } finally {
-      setSubmitting(false)
     }
   }
 
   const calculateTotals = () => {
-    const { subTotal, gstTotal, total } = calculateQuoteTotals(items)
+    const subTotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - (item.discount || 0)), 0)
+    const gstTotal = subTotal * 0.1
+    const total = subTotal + gstTotal
 
     return {
       subTotal,
@@ -573,15 +572,15 @@ export default function EditQuotePage() {
                               <div>
                                 <label className="block text-sm font-medium mb-1">Product Nature</label>
                                 <Select
-                                 value={item.productNature ?? "none"}
+                                  value={item.goodsNature ?? "contract"}
                                   onValueChange={(value) =>
-                                     updateItem(index, "productNature", value === "none" ? undefined : value) }
+                                    updateItem(index, "goodsNature", value)
+                                  }
                                 >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select nature" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                     <SelectItem value="none">None</SelectItem>
                                     <SelectItem value="contract">Contract</SelectItem>
                                     <SelectItem value="warranty">Warranty</SelectItem>
                                     <SelectItem value="gift">Gift</SelectItem>

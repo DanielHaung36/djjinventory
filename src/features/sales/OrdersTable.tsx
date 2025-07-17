@@ -43,7 +43,7 @@ import {
   Search,
   FilterList,
 } from "@mui/icons-material"
-import type { SalesOrder } from "./types/sales-order"
+import type { SalesOrder, OrderStatus } from "./types/sales-order"
 
 interface OrdersTableProps {
   orders: SalesOrder[]
@@ -81,20 +81,22 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
       const text = searchTerm.toLowerCase()
       const matchesSearch =
         order.orderNumber.toLowerCase().includes(text) ||
-        order.customer.toLowerCase().includes(text) ||
-        order.quoteNumber.toLowerCase().includes(text) ||
-        order.salesRep.toLowerCase().includes(text)
+        (order.customer?.name || '').toLowerCase().includes(text) ||
+        (order.salesRepUser?.name || '').toLowerCase().includes(text)
 
       const matchesStatus =
         statusFilter === "all" || order.status === statusFilter
 
-      const quoteDate = new Date(order.quoteDate)
-      const fromOK = !dateFrom || quoteDate >= new Date(dateFrom)
-      const toOK = !dateTo || quoteDate <= new Date(dateTo)
+      const orderDate = new Date(order.orderDate)
+      const fromOK = !dateFrom || orderDate >= new Date(dateFrom)
+      const toOK = !dateTo || orderDate <= new Date(dateTo)
 
-      const repOK = repFilter === "all" || order.salesRep === repFilter
-      const modelOK = modelFilter === "all" || order.machineModel === modelFilter
-      const regionOK = regionFilter === "all" || order.region === regionFilter
+      const repOK = repFilter === "all" || (order.salesRepUser?.name || '') === repFilter
+      // 暂时注释掉机型和地区筛选，因为新数据结构中可能没有这些字段
+      // const modelOK = modelFilter === "all" || order.machineModel === modelFilter
+      // const regionOK = regionFilter === "all" || order.region === regionFilter
+      const modelOK = true
+      const regionOK = true
 
       return matchesSearch && matchesStatus && fromOK && toOK && repOK && modelOK && regionOK
     })
@@ -140,41 +142,51 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
     setSelectedOrder(null)
   }
 
-  // 状态与优先级标签
-  const getStatusChip = (status: string) => {
+  // 状态标签 - 使用后端统一的状态枚举
+  const getStatusChip = (status: OrderStatus, hasStockIssues?: boolean) => {
     const cfg = {
-      "deposit-received": {
-        label: "Deposit Received",
+      draft: {
+        label: "草稿",
+        color: "default" as const,
+        icon: Schedule,
+      },
+      ordered: {
+        label: hasStockIssues ? "已下单 (等货中)" : "已下单 (等待定金)",
+        color: hasStockIssues ? "warning" as const : "info" as const,
+        icon: hasStockIssues ? Warning : AttachMoney,
+      },
+      deposit_received: {
+        label: "已收定金 (等待尾款)",
         color: "success" as const,
         icon: CheckCircle,
       },
-      "order-placed": {
-        label: "Order Placed",
+      final_payment_received: {
+        label: "已收尾款 (准备PD)",
         color: "primary" as const,
-        icon: Inventory,
-      },
-      "final-payment": {
-        label: "Final Payment",
-        color: "secondary" as const,
         icon: AttachMoney,
       },
-      "pre-delivery-inspection": {
-        label: "Pre-Delivery",
+      pre_delivery_inspection: {
+        label: "PD检验中",
         color: "warning" as const,
         icon: Warning,
       },
-      shipment: {
-        label: "Shipment",
+      shipped: {
+        label: "已发货",
         color: "info" as const,
         icon: Inventory,
       },
-      "order-closed": {
-        label: "Completed",
-        color: "default" as const,
+      delivered: {
+        label: "已完成",
+        color: "success" as const,
         icon: CheckCircle,
       },
+      cancelled: {
+        label: "已取消",
+        color: "error" as const,
+        icon: Warning,
+      },
     }
-    const c = cfg[status as keyof typeof cfg] || cfg["deposit-received"]
+    const c = cfg[status] || cfg.ordered
     const Icon = c.icon
     return (
       <Chip
@@ -260,7 +272,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
             }}
           >
             <SelectItem value="all">All</SelectItem>
-            {[...new Set(orders.map((o) => o.salesRep))].map((rep) => (
+            {[...new Set(orders.map((o) => o.salesRepUser?.name).filter(Boolean))].map((rep) => (
               <SelectItem key={rep} value={rep}>
                 {rep}
               </SelectItem>
@@ -376,12 +388,12 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.orderNumber}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {order.quoteNumber}
+                        Quote #{order.quoteId || 'N/A'}
                       </Typography>
                       <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
                         <Person fontSize="small" />
                         <Typography variant="caption" color="text.secondary">
-                          {order.createdBy}
+                          Created by ID: {order.createdBy}
                         </Typography>
                       </Box>
                     </Box>
@@ -389,12 +401,12 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                   <TableCell>
                     <Box>
                       <Typography variant="body2" fontWeight="medium">
-                        {order.customer}
+                        {order.customer?.name || 'Unknown Customer'}
                       </Typography>
                       <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
                         <CalendarToday fontSize="small" />
                         <Typography variant="caption" color="text.secondary">
-                          {order.quoteDate}
+                          {new Date(order.orderDate).toLocaleDateString()}
                         </Typography>
                       </Box>
                     </Box>
@@ -403,7 +415,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     <Box display="flex" alignItems="center" gap={1}>
                       <Inventory fontSize="small" color="text.secondary" />
                       <Typography variant="body2">
-                        {order.machineModel}
+                        {order.items?.[0]?.product?.model || 'Multiple Items'}
                       </Typography>
                     </Box>
                   </TableCell>
@@ -414,9 +426,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                         fontWeight="bold"
                         color="success.main"
                       >
-                        ${order.total.toLocaleString()}
+                        ${order.totalAmount.toLocaleString()}
                       </Typography>
-                      {order.depositAmount && (
+                      {order.depositAmount > 0 && (
                         <Typography
                           variant="caption"
                           color="text.secondary"
@@ -426,8 +438,20 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                       )}
                     </Box>
                   </TableCell>
-                  <TableCell>{getStatusChip(order.status)}</TableCell>
-                  <TableCell>{getPriorityChip(order.priority)}</TableCell>
+                  <TableCell>
+                    {getStatusChip(order.status, order.hasStockIssues)}
+                    {order.hasStockIssues && (
+                      <Box mt={0.5}>
+                        <Typography variant="caption" color="warning.main">
+                          库存问题
+                        </Typography>
+                      </Box>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {/* 暂时移除priority字段，因为新数据结构中没有 */}
+                    <Chip label="NORMAL" color="info" size="small" />
+                  </TableCell>
                   <TableCell>
                     <Box display="flex" alignItems="center" gap={1}>
                       <Avatar
@@ -436,24 +460,26 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                           height: 24,
                           fontSize: 12,
                           bgcolor: "success.light",
-                        }}                        >
-                        {getInitials(order.salesRep)}
+                        }}>
+                        {getInitials(order.salesRepUser?.name || 'N/A')}
                       </Avatar>
                       <Typography variant="body2">
-                        {order.salesRep}
+                        {order.salesRepUser?.name || 'Unknown'}
                       </Typography>
                     </Box>
                   </TableCell>
                   <TableCell>
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <Schedule fontSize="small" color="text.secondary" />
-                      <Typography variant="body2">{order.eta}</Typography>
+                      <Typography variant="body2">
+                        {order.shippedAt ? new Date(order.shippedAt).toLocaleDateString() : 'TBD'}
+                      </Typography>
                     </Box>
                   </TableCell>
                   <TableCell>
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <LocationOn fontSize="small" color="text.secondary" />
-                      <Typography variant="body2">{order.region}</Typography>
+                      <Typography variant="body2">{order.location || order.store?.address || 'N/A'}</Typography>
                     </Box>
                   </TableCell>
                   <TableCell align="right">

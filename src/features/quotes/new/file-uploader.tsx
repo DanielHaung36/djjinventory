@@ -1,5 +1,5 @@
 "use client"
-import { useState, forwardRef, useEffect } from "react"
+import { useState, forwardRef, useEffect, useMemo } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { X, Upload, FileText, ImageIcon, Eye } from "lucide-react"
@@ -21,31 +21,31 @@ interface FileWithPreview extends File {
 export const FileUploader = forwardRef<HTMLDivElement, FileUploaderProps>(
   ({ value = [], onChange, maxFiles = 5, maxSize = 5 * 1024 * 1024, accept, disabled = false }, ref) => {
     const [error, setError] = useState<string | null>(null)
-    const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
     const [previewImage, setPreviewImage] = useState<string | null>(null)
 
     const files = value || []
 
-    // 生成预览URL
-    useEffect(() => {
-      const newFilesWithPreview = files.map((file) => {
+    // 使用 useMemo 生成预览URL，避免无限循环
+    const filesWithPreview = useMemo(() => {
+      return files.map((file) => {
         const fileWithPreview = file as FileWithPreview
         if (file.type.startsWith("image/") && !fileWithPreview.preview) {
           fileWithPreview.preview = URL.createObjectURL(file)
         }
         return fileWithPreview
       })
-      setFilesWithPreview(newFilesWithPreview)
+    }, [files])
 
-      // 清理函数：释放URL对象
+    // 清理 URL 对象
+    useEffect(() => {
       return () => {
-        newFilesWithPreview.forEach((file) => {
+        filesWithPreview.forEach((file) => {
           if (file.preview) {
             URL.revokeObjectURL(file.preview)
           }
         })
       }
-    }, [files])
+    }, [filesWithPreview])
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
       onDrop: (acceptedFiles) => {

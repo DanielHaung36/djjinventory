@@ -84,8 +84,28 @@ export interface Customer {
   phone: string;
   email: string;
   abn: string;
-  address: string;
   contact: string;
+  
+  // 详细地址字段
+  delivery_address_line1: string;
+  delivery_address_line2?: string;
+  delivery_city: string;
+  delivery_state: string;
+  delivery_postcode: string;
+  delivery_country: string;
+  
+  billing_address_line1: string;
+  billing_address_line2?: string;
+  billing_city: string;
+  billing_state: string;
+  billing_postcode: string;
+  billing_country: string;
+  
+  same_as_delivery: boolean;
+  
+  // 保留原来的address字段以兼容
+  address: string;
+  
   version: number;
   created_at: string;
   updated_at: string;
