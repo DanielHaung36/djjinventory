@@ -36,7 +36,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
       color: "#f57c00",
       bgColor: "#fff3e0",
       icon: Warning,
-      filter: "deposit-received",
+      filter: "ordered",
       description: "Awaiting deposit",
       urgent: true,
     },
@@ -55,7 +55,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
       color: "#388e3c",
       bgColor: "#e8f5e8",
       icon: Schedule,
-      filter: "final-payment",
+      filter: "deposit_received",
       description: "Final payment due",
     },
     {
@@ -64,7 +64,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
       color: "#303f9f",
       bgColor: "#e8eaf6",
       icon: LocalShipping,
-      filter: "shipment",
+      filter: "final_payment_received",
       description: "Ready to ship",
     },
   ]

@@ -53,7 +53,7 @@ export function NewSalesOrderForm({ onBack, onSubmit }: NewSalesOrderFormProps) 
   const addItem = () => {
     const newItem: OrderItem = {
       id: Date.now().toString(),
-      type: "final-payment",
+      type: "final_payment_received",
       amount: 0,
       receipt: "",
       remark: "",
@@ -243,14 +243,14 @@ export function NewSalesOrderForm({ onBack, onSubmit }: NewSalesOrderFormProps) 
                 <div key={item.id} className="grid grid-cols-6 gap-4 items-center p-3 bg-gray-50 rounded-lg">
                   <Select
                     value={item.type}
-                    onValueChange={(value: "deposit" | "final-payment") => updateItem(item.id, "type", value)}
+                    onValueChange={(value: "deposit" | "final_payment_received") => updateItem(item.id, "type", value)}
                   >
                     <SelectTrigger className="bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="deposit">Deposit</SelectItem>
-                      <SelectItem value="final-payment">Final Payment</SelectItem>
+                      <SelectItem value="final_payment_received">Final Payment</SelectItem>
                     </SelectContent>
                   </Select>
                   <Input

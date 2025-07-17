@@ -1,16 +1,13 @@
 // Define the possible statuses an order can be in
 export const ALL_ORDER_STATUSES = [
-  "pending-deposit",
-  "deposit-received",
-  "order-placed",
-  "pd-check-pending",
-  "pd-check-complete",
-  "final-payment-pending",
-  "final-payment-received",
-  "ready-for-shipment",
+  "draft",
+  "ordered",
+  "deposit_received",
+  "final_payment_received",
+  "pre_delivery_inspection",
   "shipped",
   "delivered",
-  "order-closed", // A final closed state
+  "order_closed", // A final closed state
   "cancelled", // A state for cancelled orders
 ] as const
 

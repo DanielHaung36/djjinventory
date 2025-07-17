@@ -41,6 +41,7 @@ export type OrderStatus =
   | 'pre_delivery_inspection'
   | 'shipped'
   | 'delivered'
+  | 'order_closed'
   | 'cancelled'
 
 // 关联对象类型

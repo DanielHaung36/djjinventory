@@ -26,11 +26,23 @@ import { performLogout } from "@/lib/auth-utils";
 export function Header() {
   const { isMobile, isOpen, setOpen } = useSidebar()
   const { language, setLanguage, t } = useLanguage()
- const dispatch = useAppDispatch();
- const navigate = useNavigate();
-    // RTK Query 自动拉取用户
-  const { data: data, isLoading } = useGetProfileQuery()
-  console.log(data);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  // RTK Query 自动拉取用户
+  const { data: userData, isLoading } = useGetProfileQuery()
+  
+  // 获取用户初始字母用于头像
+  const getUserInitials = (username?: string) => {
+    if (!username) return "U"
+    return username.substring(0, 2).toUpperCase()
+  }
+  
+  // 获取用户角色显示
+  const getUserRole = (userData: any) => {
+    if (!userData) return "User"
+    // 这里可以根据实际的用户数据结构调整
+    return userData.role || userData.roles?.[0]?.name || "User"
+  }
 
 
   return (
@@ -174,9 +186,9 @@ export function Header() {
                 className="relative h-10 w-10 rounded-xl p-0 hover:bg-gray-100 transition-all duration-200 ml-2"
               >
                 <Avatar className="h-10 w-10 ring-2 ring-gray-200 shadow-md">
-                  <AvatarImage src="/placeholder.svg?height=40&width=40" alt="Avatar" />
+                  <AvatarImage src={userData?.avatar_url || "/placeholder.svg?height=40&width=40"} alt="Avatar" />
                   <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">
-                    AD
+                    {getUserInitials(userData?.username)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white shadow-sm" />
@@ -187,20 +199,24 @@ export function Header() {
                 <div className="flex flex-col space-y-3">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12 ring-2 ring-gray-200 shadow-md">
-                      <AvatarImage src="/placeholder.svg?height=48&width=48" alt="Avatar" />
+                      <AvatarImage src={userData?.avatar_url || "/placeholder.svg?height=48&width=48"} alt="Avatar" />
                       <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">
-                        AD
+                        {getUserInitials(userData?.username)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold leading-none text-gray-900">Admin User</p>
+                        <p className="text-sm font-semibold leading-none text-gray-900">
+                          {userData?.username || "Loading..."}
+                        </p>
                         <Badge className="text-xs bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-0">
                           <Shield className="w-3 h-3 mr-1" />
-                          Super Admin
+                          {getUserRole(userData)}
                         </Badge>
                       </div>
-                      <p className="text-xs leading-none text-gray-600 mt-1">admin@example.com</p>
+                      <p className="text-xs leading-none text-gray-600 mt-1">
+                        {userData?.email || "user@example.com"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-600 bg-green-50 rounded-lg px-3 py-2">

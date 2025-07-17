@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { SidebarProvider } from "@/layout/sidebar-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { LanguageProvider } from "@/layout/language-provider"
+import { PermissionProvider } from "@/hooks/usePermissions"
 import { Provider } from "react-redux";
 import { store } from "./app/store";
 import { ThemeProvider as Tper, CssBaseline, GlobalStyles } from '@mui/material';

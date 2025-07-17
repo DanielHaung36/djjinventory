@@ -51,6 +51,7 @@ import {
 } from "@/lib/services/admin-order-service"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
+import { PermissionGate, PermissionButton } from "@/components/PermissionGate"
 
 // Simulate current admin user - in a real app, this would come from auth context
 const CURRENT_ADMIN_USER = "AdminUser_01"
@@ -198,21 +199,18 @@ export default function AdminSalesOrdersPage() {
     status: OrderStatus,
   ): { variant: BadgeProps["variant"]; className?: string; icon?: React.ElementType } => {
     switch (status) {
-      case "pending-deposit":
-      case "pd-check-pending":
-      case "final-payment-pending":
+      case "draft":
         return { variant: "warning", className: "bg-amber-100 text-amber-800 border-amber-300", icon: Clock } // Assuming 'warning' is yellow/amber
-      case "deposit-received":
-      case "order-placed":
+      case "deposit_received":
+      case "ordered":
         return { variant: "info", className: "bg-sky-100 text-sky-800 border-sky-300", icon: Info } // Assuming 'info' is blueish
-      case "pd-check-complete":
-      case "ready-for-shipment":
+      case "pre_delivery_inspection":
       case "shipped":
         return { variant: "default", className: "bg-blue-600 text-white" } // Primary action color
-      case "final-payment-received":
+      case "final_payment_received":
       case "delivered":
         return { variant: "success", className: "bg-green-600 text-white", icon: CheckCircle } // Assuming 'success' is green
-      case "order-closed":
+      case "order_closed":
         return { variant: "secondary", className: "bg-slate-600 text-white" } // Darker gray for closed
       case "cancelled":
         return { variant: "destructive", className: "bg-red-600 text-white" }
@@ -223,7 +221,7 @@ export default function AdminSalesOrdersPage() {
 
   const formatStatus = (status: OrderStatus) => {
     return status
-      .split("-")
+      .split("_")
       .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
       .join(" ")
   }
@@ -406,13 +404,15 @@ export default function AdminSalesOrdersPage() {
                                 >
                                   <DropdownMenuLabel className="dark:text-slate-300">Admin Actions</DropdownMenuLabel>
                                   <DropdownMenuSeparator className="dark:bg-slate-600" />
-                                  <DropdownMenuItem
-                                    onClick={() => handleOpenStatusDialog(order)}
-                                    className="cursor-pointer dark:text-slate-200 dark:focus:bg-slate-600"
-                                  >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Change Status
-                                  </DropdownMenuItem>
+                                  <PermissionGate permission="sales.edit">
+                                    <DropdownMenuItem
+                                      onClick={() => handleOpenStatusDialog(order)}
+                                      className="cursor-pointer dark:text-slate-200 dark:focus:bg-slate-600"
+                                    >
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Change Status
+                                    </DropdownMenuItem>
+                                  </PermissionGate>
                                   <DropdownMenuItem
                                     asChild
                                     className="cursor-pointer dark:text-slate-200 dark:focus:bg-slate-600"
@@ -423,13 +423,15 @@ export default function AdminSalesOrdersPage() {
                                     </Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="dark:bg-slate-600" />
-                                  <DropdownMenuItem
-                                    onClick={() => handleOpenDeleteDialog(order)}
-                                    className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-500 dark:focus:bg-red-900/50 cursor-pointer"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Order
-                                  </DropdownMenuItem>
+                                  <PermissionGate permission="sales.delete">
+                                    <DropdownMenuItem
+                                      onClick={() => handleOpenDeleteDialog(order)}
+                                      className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-500 dark:focus:bg-red-900/50 cursor-pointer"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete Order
+                                    </DropdownMenuItem>
+                                  </PermissionGate>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>

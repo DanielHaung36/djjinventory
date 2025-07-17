@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { Box, Typography, Button, Tabs, Tab, Card, CardContent } from "@mui/material";
+import { Box, Typography, Button, Tabs, Tab, Card, CardContent, Alert, CircularProgress } from "@mui/material";
 import { Plus, ShoppingCart, Assignment } from "@mui/icons-material";
 import StatsCards from "./StatsCards";
 import OrdersTable from "./OrdersTable";
@@ -67,12 +67,15 @@ const generateMockOrders = (): SalesOrder[] => {
   ]
 
   const statuses: SalesOrder["status"][] = [
-    "deposit-received",
-    "order-placed",
-    "final-payment",
-    "pre-delivery-inspection",
-    "shipment",
-    "order-closed",
+    "draft",
+    "ordered",
+    "deposit_received",
+    "final_payment_received",
+    "pre_delivery_inspection",
+    "shipped",
+    "delivered",
+    "order_closed",
+    "cancelled",
   ]
 
   const priorities: SalesOrder["priority"][] = ["high", "medium", "low"]
@@ -127,11 +130,63 @@ interface SalesDashboardProps {
 
 export function SalesDashboard({ onNewOrder, onViewOrder }: SalesDashboardProps) {
   const [statusFilter, setStatusFilter] = useState("all")
+  const [orders, setOrders] = useState<SalesOrder[]>([])
+  const [stats, setStats] = useState<DashboardStats>(mockStats)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // 获取订单数据
+      const ordersResponse = await orderApi.getOrders({ page: 1, limit: 50 })
+      setOrders(ordersResponse.data)
+      
+      // 获取统计数据
+      const statsResponse = await orderApi.getOrderStats()
+      setStats({
+        totalOrders: statsResponse.data.total || 0,
+        pendingDeposits: statsResponse.data.deposit_received || 0,
+        pendingPDChecks: statsResponse.data.pre_delivery_inspection || 0,
+        pendingFinalPayments: statsResponse.data.final_payment_received || 0,
+        pendingShipments: statsResponse.data.shipped || 0,
+      })
+    } catch (err) {
+      console.error('Error loading dashboard data:', err)
+      setError('Failed to load dashboard data')
+      // 如果API调用失败，继续使用mock数据
+      setOrders(mockOrders)
+      setStats(mockStats)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleFilterChange = (filter: string) => {
     setStatusFilter(filter)
   }
-   return (
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "50vh" }}>
+        <CircularProgress />
+        <Typography variant="body2" sx={{ ml: 2 }}>
+          Loading dashboard data...
+        </Typography>
+      </Box>
+    )
+  }
+
+  const filteredOrders = statusFilter === "all" 
+    ? orders 
+    : orders.filter((order) => order.status === statusFilter)
+
+  return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3, overflow: "auto", px: 4, py: 3 }}>
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -153,8 +208,15 @@ export function SalesDashboard({ onNewOrder, onViewOrder }: SalesDashboardProps)
         </Button>
       </Box>
 
+      {/* Error Alert */}
+      {error && (
+        <Alert severity="warning" onClose={() => setError(null)}>
+          {error}. Using cached data instead.
+        </Alert>
+      )}
+
       {/* StatsCards */}
-      <StatsCards stats={mockStats} onFilterChange={handleFilterChange} activeFilter={statusFilter} />
+      <StatsCards stats={stats} onFilterChange={handleFilterChange} activeFilter={statusFilter} />
 
       {/* Orders Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -162,17 +224,17 @@ export function SalesDashboard({ onNewOrder, onViewOrder }: SalesDashboardProps)
           {statusFilter === "all" ? "All Orders" : `Filtered Orders`}
           {statusFilter !== "all" && (
             <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              ({mockOrders.filter((o) => o.status === statusFilter).length} orders)
+              ({filteredOrders.length} orders)
             </Typography>
           )}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {mockOrders.length} total orders
+          {orders.length} total orders
         </Typography>
       </Box>
 
       {/* OrdersTable */}
-      <OrdersTable orders={mockOrders} onViewOrder={onViewOrder} statusFilter={statusFilter} />
+      <OrdersTable orders={filteredOrders} onViewOrder={onViewOrder} statusFilter={statusFilter} />
     </Box>
   );
 }

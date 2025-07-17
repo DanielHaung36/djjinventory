@@ -1,4 +1,5 @@
 import type { User, PermissionModule, UserPermissionData } from "@/lib/types/user-permission"
+import { permissionApi } from "@/api/permissionApi"
 
 // 模拟用户数据
 const mockUsers: User[] = [
@@ -176,18 +177,33 @@ const mockUserPermissions: Record<number, UserPermissionData> = {
 }
 
 export const getUsers = async (): Promise<User[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  return [...mockUsers]
+  try {
+    return await permissionApi.getUsers()
+  } catch (error) {
+    console.error('Error fetching users from API, falling back to mock data:', error)
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    return [...mockUsers]
+  }
 }
 
 export const getPermissionModules = async (): Promise<PermissionModule[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  return [...mockPermissionModules]
+  try {
+    return await permissionApi.getPermissionModules()
+  } catch (error) {
+    console.error('Error fetching permission modules from API, falling back to mock data:', error)
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    return [...mockPermissionModules]
+  }
 }
 
 export const getUserPermissions = async (userId: number): Promise<UserPermissionData | null> => {
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  return mockUserPermissions[userId] || null
+  try {
+    return await permissionApi.getUserPermissions(userId)
+  } catch (error) {
+    console.error('Error fetching user permissions from API, falling back to mock data:', error)
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    return mockUserPermissions[userId] || null
+  }
 }
 
 export const updateUserPermissions = async (
@@ -195,15 +211,20 @@ export const updateUserPermissions = async (
   permissions: number[],
   modifiedBy: string,
 ): Promise<UserPermissionData> => {
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  try {
+    return await permissionApi.updateUserPermissions(userId, permissions, modifiedBy)
+  } catch (error) {
+    console.error('Error updating user permissions via API, falling back to mock behavior:', error)
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
-  const updatedData: UserPermissionData = {
-    userId,
-    permissions,
-    lastModified: new Date().toISOString(),
-    modifiedBy,
+    const updatedData: UserPermissionData = {
+      userId,
+      permissions,
+      lastModified: new Date().toISOString(),
+      modifiedBy,
+    }
+
+    mockUserPermissions[userId] = updatedData
+    return updatedData
   }
-
-  mockUserPermissions[userId] = updatedData
-  return updatedData
 }

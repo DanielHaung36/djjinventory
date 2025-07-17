@@ -39,6 +39,7 @@ import {
   getUserPermissions,
   updateUserPermissions,
 } from "@/lib/services/user-permission-service"
+import { PermissionGate } from "@/components/PermissionGate"
 import { cn } from "@/lib/utils"
 
 export default function UserPermissionsPage() {
@@ -54,6 +55,8 @@ export default function UserPermissionsPage() {
   // UI states
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [isUsingMockData, setIsUsingMockData] = useState(false)
   const [userSearch, setUserSearch] = useState("")
   const [permissionSearch, setPermissionSearch] = useState("")
   const [selectedModule, setSelectedModule] = useState<string>("all")
@@ -64,14 +67,24 @@ export default function UserPermissionsPage() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
+      setApiError(null)
       try {
         const [usersData, modulesData] = await Promise.all([getUsers(), getPermissionModules()])
         setUsers(usersData)
         setPermissionModules(modulesData)
+        
+        // 检查是否使用mock数据（简单的检查方式）
+        const isMock = usersData.length > 0 && usersData[0].username === "admin"
+        setIsUsingMockData(isMock)
+        
+        if (isMock) {
+          setApiError("正在使用模拟数据，请检查后端API连接")
+        }
       } catch (error) {
+        setApiError("无法加载用户和权限数据")
         toast({
           title: "Loading Failed",
-          description: "Unable to load user and permission data. Please try again.",
+          description: "Unable to load user and permission data. Using fallback data.",
           variant: "destructive",
         })
       } finally {
@@ -247,8 +260,20 @@ export default function UserPermissionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="space-y-6">
+    <PermissionGate 
+      permission="user.permission"
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">访问被拒绝</h2>
+            <p className="text-gray-600">您没有权限访问用户权限管理功能</p>
+          </div>
+        </div>
+      }
+    >
+      <div className="min-h-screen bg-gray-50">
+        <div className="space-y-6">
         {/* Light-themed Header */}
         <div className="relative overflow-hidden rounded-2xl bg-white border border-gray-200 p-8 shadow-sm">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50" />
@@ -262,6 +287,16 @@ export default function UserPermissionsPage() {
                 <p className="text-lg text-gray-600 mt-1">Secure access control and permission management system</p>
               </div>
             </div>
+
+            {/* API状态指示器 */}
+            {(apiError || isUsingMockData) && (
+              <div className="flex items-center gap-2 mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-yellow-800">
+                  {isUsingMockData ? "使用模拟数据 - 后端API未连接" : apiError}
+                </span>
+              </div>
+            )}
 
             {selectedUser && (
               <div className="flex items-center gap-6 mt-6">
@@ -696,6 +731,7 @@ export default function UserPermissionsPage() {
         </div>
       </div>
     </div>
+    </PermissionGate>
   )
 }
 

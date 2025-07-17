@@ -67,7 +67,7 @@ const NewSalesDashboard: React.FC = () => {
         pdOrders,
         shipmentOrders
       ] = await Promise.all([
-        orderApi.getOrders(1, 1),
+        orderApi.getOrders({ page: 1, limit: 1 }),
         orderApi.getOrdersByStatus('deposit_received', 1, 1),
         orderApi.getOrdersByStatus('final_payment_received', 1, 1),
         orderApi.getOrdersByStatus('pre_delivery_inspection', 1, 1),
