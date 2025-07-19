@@ -13,7 +13,7 @@ import { ShoppingCart, Assignment, Refresh } from '@mui/icons-material'
 import ApprovedQuotesPage from './ApprovedQuotesPage'
 import OrderManagementPage from './OrderManagementPage'
 import StatsCards from './StatsCards'
-import { DashboardStats } from './types/dashboard'
+import type { DashboardStats } from './types/dashboard'
 import { orderApi } from '../../api/orderApi'
 
 interface TabPanelProps {

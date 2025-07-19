@@ -21,9 +21,10 @@ import {
   DialogActions
 } from '@mui/material'
 import { ShoppingCart, CheckCircle, Warning } from '@mui/icons-material'
-import { quoteApi, Quote } from '../../api/quoteApi'
+import { quoteApi } from '../../api/quoteApi'
+import type { Quote } from '../../api/quoteApi'
 import { orderApi } from '../../api/orderApi'
-import { SalesOrder } from './types/sales-order'
+import type { SalesOrder } from './types/sales-order'
 
 const ApprovedQuotesPage: React.FC = () => {
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -42,13 +43,21 @@ const ApprovedQuotesPage: React.FC = () => {
     try {
       setLoading(true)
       const response = await quoteApi.getApprovedQuotes(1, 50)
+      console.log('Approved quotes response:', response) // 调试日志
+      
+      // 确保response.data存在且是数组
+      const quotesData = response.data || []
+      console.log('Quotes data:', quotesData) // 调试日志
+      
       // 过滤掉已经转换的quotes
-      const unconvertedQuotes = response.data.filter(q => !q.convertedToOrder)
+      const unconvertedQuotes = quotesData.filter(q => q && !q.convertedToOrder)
+      console.log('Unconverted quotes:', unconvertedQuotes) // 调试日志
+      
       setQuotes(unconvertedQuotes)
       setError(null)
     } catch (err) {
       console.error('Error loading approved quotes:', err)
-      setError('Failed to load approved quotes')
+      setError(`Failed to load approved quotes: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -120,6 +129,23 @@ const ApprovedQuotesPage: React.FC = () => {
           {error}
         </Alert>
       )}
+
+      {/* 调试信息 */}
+      <Alert severity="info" sx={{ mb: 2 }}>
+        调试信息: 找到 {quotes.length} 个待转换的报价单
+        {quotes.length === 0 && (
+          <div>
+            <br />
+            可能原因:
+            <br />
+            1. 数据库中没有状态为 "approved" 的报价单
+            <br />
+            2. 所有报价单都已经转换为订单
+            <br />
+            3. 数据结构不匹配
+          </div>
+        )}
+      </Alert>
 
       <Card>
         <CardContent>

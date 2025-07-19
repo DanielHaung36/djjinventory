@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -16,7 +17,7 @@ import {
   TextField
 } from '@mui/material'
 import OrdersTable from './OrdersTable'
-import { SalesOrder, OrderStatus } from './types/sales-order'
+import type { SalesOrder, OrderStatus } from './types/sales-order'
 import { orderApi } from '../../api/orderApi'
 
 // 状态标签页配置
@@ -32,6 +33,7 @@ const statusTabs = [
 ]
 
 const OrderManagementPage: React.FC = () => {
+  const navigate = useNavigate()
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,15 +54,16 @@ const OrderManagementPage: React.FC = () => {
       setLoading(true)
       let response
       if (selectedTab === 'all') {
-        response = await orderApi.getOrders(1, 100)
+        response = await orderApi.getOrders({ page: 1, limit: 100 })
       } else {
         response = await orderApi.getOrdersByStatus(selectedTab, 1, 100)
       }
-      setOrders(response.data)
+      console.log('Orders response:', response) // 调试日志
+      setOrders(response.data || [])
       setError(null)
     } catch (err) {
       console.error('Error loading orders:', err)
-      setError('Failed to load orders')
+      setError(`Failed to load orders: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -135,8 +138,9 @@ const OrderManagementPage: React.FC = () => {
 
   // 查看订单详情
   const handleViewOrder = (order: SalesOrder) => {
-    // TODO: 实现订单详情页面导航
-    console.log('View order:', order)
+    console.log('Navigating to order details:', order)
+    // 导航到订单详情页，使用订单编号作为URL参数
+    navigate(`/sales/${order.orderNumber}`)
   }
 
   // 获取可用的操作按钮

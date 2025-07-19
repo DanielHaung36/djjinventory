@@ -58,21 +58,47 @@ export function InvoicePDFGenerator() {
   const [error, setError] = useState<string | null>(null)
   const [showStaticPreview, setShowStaticPreview] = useState(true)
 
-  // Go 后端 URL
-  const GO_BACKEND_URL =  "http://localhost:8080"
+  // 使用环境变量或代理配置
+  const GO_BACKEND_URL = import.meta.env.VITE_API_HOST || "https://192.168.1.244:8080"
 
   const fetchInvoiceData = async (invoiceId: string) => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`/api/invoice-data?id=${invoiceId}`)
-      const result = await response.json()
-
-      if (result.success) {
-        setInvoiceData(result.data)
-      } else {
-        setError("Failed to load invoice data")
+      // 暂时使用mock数据，因为后端没有invoice-data端点
+      // TODO: 当后端添加发票数据端点时，替换为实际API调用
+      const mockData: InvoiceData = {
+        invoiceNumber: invoiceId,
+        date: new Date().toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        customerInfo: {
+          name: "示例客户",
+          address: "示例地址",
+          email: "customer@example.com",
+          phone: "+86 138-0000-0000"
+        },
+        companyInfo: {
+          name: "DJJ汽车配件有限公司",
+          address: "中国某某省某某市",
+          email: "info@djj.com",
+          phone: "+86 400-000-0000"
+        },
+        items: [
+          {
+            id: "1",
+            djjCode: "DJJ-001",
+            description: "示例配件",
+            detailDescription: "详细描述",
+            vinEngine: "VIN123456",
+            quantity: 1,
+            location: "A区1号",
+            unitPrice: 1000,
+            discount: 0
+          }
+        ]
       }
+      
+      setInvoiceData(mockData)
     } catch (error) {
       console.error("Failed to fetch invoice data:", error)
       setError("Failed to fetch invoice data")
@@ -95,12 +121,13 @@ export function InvoicePDFGenerator() {
     setGenerating(true)
     setError(null)
     try {
-      const response = await fetch(`${GO_BACKEND_URL}/api/generate-pdf`, {
-        method: "POST",
+      // 使用现有的报价PDF端点（假设invoiceId是quoteId）
+      // TODO: 当后端添加专门的发票PDF端点时，更新此URL
+      const response = await fetch(`/api/quotes/${selectedInvoice}/pdf`, {
+        method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(invoiceData),
       })
 
       if (!response.ok) {

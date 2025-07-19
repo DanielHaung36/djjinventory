@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from './client'
 
 export interface DashboardStats {
   pending_quotes: number
@@ -42,7 +42,7 @@ export const dashboardApi = {
   // 获取完整的看板数据
   async getDashboardData(): Promise<DashboardResponse> {
     const response = await api.get('/dashboard')
-    return response.data
+    return response.data.data // 后端返回格式是 { message: "", data: {...} }
   },
 
   // 获取统计数据

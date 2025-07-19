@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Box, Typography, Button, Tabs, Tab, Card, CardContent, Alert, CircularProgress } from "@mui/material";
-import { Plus, ShoppingCart, Assignment } from "@mui/icons-material";
+import { Add, ShoppingCart, Assignment } from "@mui/icons-material";
 import StatsCards from "./StatsCards";
 import OrdersTable from "./OrdersTable";
 import type { DashboardStats } from "./types/dashboard";
@@ -201,7 +201,7 @@ export function SalesDashboard({ onNewOrder, onViewOrder }: SalesDashboardProps)
         <Button
           onClick={onNewOrder}
           variant="contained"
-          startIcon={<Plus size={16} />}
+          startIcon={<Add />}
           sx={{ backgroundColor: "#2563eb", "&:hover": { backgroundColor: "#1d4ed8" } }}
         >
           New Sales Order

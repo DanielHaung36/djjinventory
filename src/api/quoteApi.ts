@@ -1,5 +1,5 @@
 import { api } from './client'
-import { SalesOrder } from '../features/sales/types/sales-order'
+import type { SalesOrder } from '../features/sales/types/sales-order'
 
 // Quote接口类型
 export interface Quote {
@@ -55,7 +55,17 @@ export const quoteApi = {
     const response = await api.get('quotes/approval/status/approved', {
       params: { page, limit }
     })
-    return response.data
+    // 后端可能返回 {message, data} 格式，需要适配
+    if (response.data.data) {
+      return response.data
+    }
+    // 如果直接返回数组，包装成预期格式
+    return {
+      data: Array.isArray(response.data) ? response.data : [],
+      total: Array.isArray(response.data) ? response.data.length : 0,
+      page,
+      limit
+    }
   },
 
   // 获取Quote详情

@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { SidebarProvider } from "@/layout/sidebar-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { LanguageProvider } from "@/layout/language-provider"
-import { PermissionProvider } from "@/hooks/usePermissions"
+import { PermissionProvider } from "@/hooks/usePermissions.tsx"
 import { Provider } from "react-redux";
 import { store } from "./app/store";
 import { ThemeProvider as Tper, CssBaseline, GlobalStyles } from '@mui/material';
@@ -25,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <Provider store={store}>
+      <PermissionProvider userId={1}>
       <LanguageProvider>
       <Tper theme={theme}>
         <CssBaseline />
@@ -45,6 +46,7 @@ createRoot(document.getElementById('root')!).render(
         </SidebarProvider>
       </Tper>
       </LanguageProvider>
+      </PermissionProvider>
     </Provider>
     </ThemeProvider>
   </StrictMode>

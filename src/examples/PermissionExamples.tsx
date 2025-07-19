@@ -1,6 +1,6 @@
 import React from 'react'
 import { PermissionGate, PermissionButton, PermissionLink } from '../components/PermissionGate'
-import { usePermissions, usePermissionCheck, usePermissionChecks } from '../hooks/usePermissions'
+import { usePermissions, usePermissionCheck, usePermissionChecks } from '../hooks/usePermissions.tsx'
 
 /**
  * 权限系统使用示例

@@ -1,5 +1,5 @@
 import { api } from './client'
-import { SalesOrder, OrderStatus } from '../features/sales/types/sales-order'
+import type { SalesOrder, OrderStatus } from '../features/sales/types/sales-order'
 
 // 订单查询参数接口
 export interface OrderQueryParams {
@@ -55,7 +55,20 @@ export const orderApi = {
   // 获取订单列表
   async getOrders(params: OrderQueryParams = {}): Promise<OrderListResponse> {
     const response = await api.get('orders', { params })
-    return response.data
+    console.log('Raw orders response:', response.data) // 调试日志
+    
+    // 后端可能返回 {message, data} 格式，需要适配
+    if (response.data.data) {
+      return response.data
+    }
+    
+    // 如果直接返回数组，包装成预期格式
+    return {
+      data: Array.isArray(response.data) ? response.data : [],
+      total: Array.isArray(response.data) ? response.data.length : 0,
+      page: params.page || 1,
+      limit: params.limit || 10
+    }
   },
 
   // 根据状态获取订单列表
@@ -63,7 +76,20 @@ export const orderApi = {
     const response = await api.get(`orders/status/${status}`, {
       params: { page, limit }
     })
-    return response.data
+    console.log('Raw orders by status response:', response.data) // 调试日志
+    
+    // 后端可能返回 {message, data} 格式，需要适配
+    if (response.data.data) {
+      return response.data
+    }
+    
+    // 如果直接返回数组，包装成预期格式
+    return {
+      data: Array.isArray(response.data) ? response.data : [],
+      total: Array.isArray(response.data) ? response.data.length : 0,
+      page,
+      limit
+    }
   },
 
   // 获取订单详情

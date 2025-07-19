@@ -15,7 +15,8 @@ import {
   Activity,
   Download,
 } from "lucide-react"
-import { dashboardApi, DashboardResponse } from "@/api/dashboardApi"
+import { dashboardApi } from "@/api/dashboardApi"
+import type { DashboardResponse } from "@/api/dashboardApi"
 import { PermissionGate } from "@/components/PermissionGate"
 
 // 使用 memo 优化的统计卡片组件
@@ -88,37 +89,37 @@ const Dashboard = () => {
 
   // 转换为前端格式的统计数据
   const stats = useMemo(() => {
-    if (!dashboardData) return []
+    if (!dashboardData || !dashboardData.stats) return []
     
     return [
       {
         title: "待审批报价",
-        value: dashboardData.stats.pending_quotes.toString(),
-        change: dashboardData.stats.pending_quotes_text,
+        value: (dashboardData.stats.pending_quotes || 0).toString(),
+        change: dashboardData.stats.pending_quotes_text || "暂无数据",
         icon: FileText,
         color: "text-blue-600",
         bgColor: "bg-blue-100",
       },
       {
         title: "活跃订单",
-        value: dashboardData.stats.active_orders.toString(),
-        change: dashboardData.stats.active_orders_text,
+        value: (dashboardData.stats.active_orders || 0).toString(),
+        change: dashboardData.stats.active_orders_text || "暂无数据",
         icon: Package,
         color: "text-green-600",
         bgColor: "bg-green-100",
       },
       {
         title: "本月销售额",
-        value: dashboardData.stats.monthly_sales,
-        change: dashboardData.stats.monthly_sales_text,
+        value: dashboardData.stats.monthly_sales || "$0",
+        change: dashboardData.stats.monthly_sales_text || "暂无数据",
         icon: DollarSign,
         color: "text-purple-600",
         bgColor: "bg-purple-100",
       },
       {
         title: "活跃用户",
-        value: dashboardData.stats.active_users.toString(),
-        change: dashboardData.stats.active_users_text,
+        value: (dashboardData.stats.active_users || 0).toString(),
+        change: dashboardData.stats.active_users_text || "暂无数据",
         icon: Users,
         color: "text-orange-600",
         bgColor: "bg-orange-100",

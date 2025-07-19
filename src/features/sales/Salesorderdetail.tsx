@@ -14,6 +14,7 @@ import {
   LinearProgress,
   Paper,
   Stack,
+  Alert,
 } from "@mui/material"
 import OrderSummary from "./components/OrderSummary"
 
@@ -27,6 +28,7 @@ import OrderDetailsTable from "./components/order-details-table"
 interface SalesOrderDetailProps {
   order: SalesOrder
   onBack: () => void
+  onOrderUpdate?: (orderId: string) => void
 }
 
 export const workflowSteps: WorkflowStep[] = [
@@ -148,13 +150,58 @@ export const sampleOrder: SalesOrder = {
 
 export type ViewMode = "list" | "detail" | "create" | "edit-deposit" | "edit-payment" | "edit-shipment" | "close-order"
 
-export function SalesOrderDetail({ order, onBack }: SalesOrderDetailProps) {
+export function SalesOrderDetail({ order, onBack, onOrderUpdate }: SalesOrderDetailProps) {
   const [selectedStep, setSelectedStep] = useState<number>(4)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const completedSteps = workflowSteps.filter((step) => step.status === "completed").length
   const progressPercentage = (completedSteps / workflowSteps.length) * 100
   const [isPickingListOpen, setIsPickingListOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("detail")
+
+  // Proceed操作处理函数
+  const handleProceed = async (action: string) => {
+    if (!order?.id) return
+    
+    setLoading(true)
+    setError(null)
+    
+    try {
+      // 导入orderApi
+      const { orderApi } = await import('../../api/orderApi')
+      
+      // 根据不同的action调用相应的API
+      switch (action) {
+        case 'deposit-payment':
+          await orderApi.processDepositPayment(order.id)
+          break
+        case 'final-payment':
+          await orderApi.processFinalPayment(order.id)
+          break
+        case 'pd-complete':
+          await orderApi.processPDComplete(order.id)
+          break
+        case 'ship':
+          await orderApi.processShipment(order.id)
+          break
+        default:
+          throw new Error(`未知操作: ${action}`)
+      }
+      
+      console.log(`Successfully proceeded with action: ${action} for order ${order.id}`)
+      
+      // 刷新订单数据
+      if (onOrderUpdate) {
+        await onOrderUpdate(order.orderNumber)
+      }
+    } catch (err) {
+      console.error('Error proceeding with action:', err)
+      setError(`操作失败: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
     // Main order detail view
 
   if (viewMode === "create" || viewMode === "edit-deposit" || viewMode === "edit-payment" || viewMode === "edit-shipment" || viewMode === "close-order") {
@@ -189,6 +236,64 @@ export function SalesOrderDetail({ order, onBack }: SalesOrderDetailProps) {
         >
           <DetailHeader order={order} workflowSteps={workflowSteps} setIsPickingListOpen={setIsPickingListOpen} setViewMode={setViewMode} />
         </Paper>
+
+        {/* Error Display */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Proceed Actions */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              订单操作
+            </Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap">
+              {order?.status === 'ordered' && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={loading}
+                  onClick={() => handleProceed('deposit-payment')}
+                >
+                  {loading ? '处理中...' : '确认定金支付'}
+                </Button>
+              )}
+              {order?.status === 'deposit_received' && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={loading}
+                  onClick={() => handleProceed('final-payment')}
+                >
+                  {loading ? '处理中...' : '确认尾款支付'}
+                </Button>
+              )}
+              {order?.status === 'final_payment_received' && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={loading}
+                  onClick={() => handleProceed('pd-complete')}
+                >
+                  {loading ? '处理中...' : '完成PD检查'}
+                </Button>
+              )}
+              {order?.status === 'pre_delivery_inspection' && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={loading}
+                  onClick={() => handleProceed('ship')}
+                >
+                  {loading ? '处理中...' : '确认发货'}
+                </Button>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
 
         <Grid className="workflow" container spacing={4} sx={{flexWrap:'nowrap'}}>
           {/* Enhanced Workflow Steps Sidebar */}
