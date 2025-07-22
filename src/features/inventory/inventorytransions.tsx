@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import JsBarcode from "jsbarcode"
-import { useGetProductStockQuery,useGetProductTransactionsQuery, useDeleteInventoryTransactionMutation } from "./inventoryApi"
+import { useGetProductTransactionsQuery, useDeleteInventoryTransactionMutation, type InventoryTransaction } from "./inventoryApi"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,15 +64,8 @@ import {
 } from "@mui/material"
 import DeleteIcon from "@mui/icons-material/Delete"
 
-interface InventoryTransaction {
-  id: number
-  inventory_id: number
-  tx_type: "IN" | "OUT"
-  quantity: number
-  operator: string
-  created_at: string
-  note?: string
-}
+// 使用从API导入的InventoryTransaction类型
+// 该类型包含product和warehouse信息
 
 interface InventoryDetail {
   id: number
@@ -118,38 +111,67 @@ export default function InventoryTransactionsPage() {
   const [searchParams] = useSearchParams()
   const warehouseId = searchParams.get('warehouseId') ? parseInt(searchParams.get('warehouseId')!) : undefined
 
-  // inventoryId 实际上是产品ID，我们需要获取该产品的库存信息
-  const { 
-    data: productStock, 
-    isLoading: productStockLoading, 
-    error: productStockError 
-  } = useGetProductStockQuery(Number(inventoryId), { skip: !inventoryId })
-  
-  // 模拟inventory对象以兼容现有代码
-  const inventory = productStock ? {
-    id: Number(inventoryId),
-    partNumberCN: productStock.product.djjCode,
-    partNumberAU: productStock.product.djjCode,
-    barcode: productStock.product.djjCode,
-    description: productStock.product.nameEn || '',
-    descriptionChinese: productStock.product.nameCn,
-    actualQty: productStock.total_on_hand,
-    lockedQty: productStock.total_reserved,
-    availableQty: productStock.total_available,
-    warehouse: productStock.warehouses[0]?.warehouse_name || '',
-    siteLocation: ''
-  } : null
-
-  const { data, isLoading: txLoading, isError: txError } =
+  // 查询产品交易历史，API会返回包含product和warehouse信息的完整数据
+  const { data: transactions = [], isLoading: txLoading, isError: txError } =
     useGetProductTransactionsQuery({ 
       productId: Number(inventoryId), 
       warehouseId: warehouseId,
       page: 1, 
       page_size: 100 
     }, {
-      skip: !inventory, // 等 inventory 有了再去拿
+      skip: !inventoryId,
     })
-  const transactions: InventoryTransaction[] = data ?? [];
+
+  // 计算库存摘要信息
+  const transactionSummary = useMemo((): TransactionSummary => {
+    if (!transactions || transactions.length === 0) {
+      return {
+        totalTransactions: 0,
+        totalInbound: 0,
+        totalOutbound: 0,
+        netQuantity: 0,
+      }
+    }
+    
+    const totalInbound = transactions.filter((t) => t.tx_type === "IN").reduce((sum, t) => sum + t.quantity, 0)
+    const totalOutbound = transactions.filter((t) => t.tx_type === "OUT").reduce((sum, t) => sum + t.quantity, 0)
+    return {
+      totalTransactions: transactions.length,
+      totalInbound,
+      totalOutbound,
+      netQuantity: totalInbound - totalOutbound,
+    }
+  }, [transactions])
+
+  // 从交易数据中提取产品信息（使用第一条交易记录的产品信息）
+  const productInfo = transactions && transactions.length > 0 && transactions[0].product ? {
+    id: Number(inventoryId),
+    partNumberCN: transactions[0].product.djj_code,
+    partNumberAU: transactions[0].product.djj_code, 
+    barcode: transactions[0].product.djj_code,
+    description: transactions[0].product.name_cn,
+    descriptionChinese: transactions[0].product.name_cn,
+    actualQty: transactionSummary.netQuantity, // 通过交易历史计算当前库存
+    lockedQty: 0, // 预留数量，可以从后端获取
+    availableQty: transactionSummary.netQuantity, // 可用库存
+    warehouse: transactions[0].warehouse?.name || `Warehouse-${warehouseId}`,
+    siteLocation: transactions[0].warehouse?.location || ''
+  } : {
+    // 默认产品信息，当没有交易记录时使用
+    id: Number(inventoryId),
+    partNumberCN: `Product-${inventoryId}`,
+    partNumberAU: `Product-${inventoryId}`,
+    barcode: `Product-${inventoryId}`,
+    description: `产品 ${inventoryId}`,
+    descriptionChinese: `产品 ${inventoryId}`,
+    actualQty: 0,
+    lockedQty: 0,
+    availableQty: 0,
+    warehouse: `Warehouse-${warehouseId}`,
+    siteLocation: ''
+  }
+
+  const inventory = productInfo
   const [deleting, setDeleting] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<"ALL" | "IN" | "OUT">("ALL")
@@ -162,21 +184,21 @@ export default function InventoryTransactionsPage() {
   const [deleteTransactionMutation, { isLoading: deleteLoading }] = useDeleteInventoryTransactionMutation()
 
   useEffect(() => {
-    console.log(inventoryId, inventory, transactions);
-  }, [inventoryId, inventory, transactions])
-
-  const transactionSummary = useMemo((): TransactionSummary => {
-    const totalInbound = transactions.filter((t) => t.tx_type === "IN").reduce((sum, t) => sum + t.quantity, 0)
-    const totalOutbound = transactions.filter((t) => t.tx_type === "OUT").reduce((sum, t) => sum + t.quantity, 0)
-    return {
-      totalTransactions: transactions.length,
-      totalInbound,
-      totalOutbound,
-      netQuantity: totalInbound - totalOutbound,
-    }
-  }, [transactions])
+    console.log('🔍 Debug Info:', {
+      inventoryId,
+      warehouseId,
+      hasInventory: Boolean(inventory),
+      transactionCount: transactions?.length || 0,
+      txLoading,
+      hasTxError: Boolean(txError)
+    });
+  }, [inventoryId, warehouseId, Boolean(inventory), transactions?.length || 0, txLoading, Boolean(txError)])
 
   const filteredAndSortedTransactions = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return []
+    }
+    
     const filtered = transactions.filter((transaction) => {
       const matchesSearch =
         transaction.operator.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -358,8 +380,8 @@ BARCODE: ${inventory.partNumberAU}`
 
 
 
-  // Loading & error i18n
-  if (productStockLoading || txLoading) {
+  // Loading & error handling
+  if (txLoading) {
     return (
       <LoadingScreen 
         title={t("transactions.loadingInventoryData")}
@@ -367,9 +389,11 @@ BARCODE: ${inventory.partNumberAU}`
       />
     )
   }
-  if (productStockError) return <div>{t("transactions.loadInventoryError")}</div>
-  if (!inventory) return <div>{t("transactions.notFound")}</div>
-  if (txError) return <div>{t("transactions.loadTxError")}</div>
+  
+  if (txError) {
+    console.error('❌ 交易历史查询失败:', txError)
+    // 即使交易查询失败，也显示页面，只是显示空的交易列表
+  }
 
   // 删除交易记录 - 使用实际API调用
 
@@ -407,19 +431,6 @@ BARCODE: ${inventory.partNumberAU}`
     )
   }
 
-  if (productStockLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-            <span className="text-lg">{t("transactions.loadingInventoryData")}</span>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (!inventory) {
     return (
       <div className="container mx-auto p-6">
@@ -437,7 +448,7 @@ BARCODE: ${inventory.partNumberAU}`
   }
 
   const handleDeleteInventory = async () => {
-    if (transactions.length > 0) {
+    if (transactions && transactions.length > 0) {
       toast({
         title: t("transactions.cannotDeleteInventory"),
         description: t("transactions.cannotDeleteInventoryDesc"),
@@ -660,13 +671,13 @@ BARCODE: ${inventory.partNumberAU}`
           </div>
 
           {/* Bulk Actions */}
-          {transactions.length > 0 && (
+          {transactions && transactions.length > 0 && (
             <div className="flex items-center justify-end gap-2 pt-4 border-t">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" disabled={deleting !== null}>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    {t("transactions.clearAll", { count: transactions.length })}
+                    {t("transactions.clearAll", { count: transactions?.length || 0 })}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -682,7 +693,7 @@ BARCODE: ${inventory.partNumberAU}`
                           <strong>{t("transactions.partNo")}:</strong> {inventory.partNumberCN} - {inventory.description}
                         </p>
                         <p>
-                          <strong>{t("transactions.totalTransactions")}:</strong> {transactions.length} {t("transactions.records")}
+                          <strong>{t("transactions.totalTransactions")}:</strong> {transactions?.length || 0} {t("transactions.records")}
                         </p>
                         <p>
                           <strong>{t("transactions.totalInbound")}:</strong> +{transactionSummary.totalInbound}
@@ -865,7 +876,7 @@ BARCODE: ${inventory.partNumberAU}`
         />
       )}
       {/* Delete Inventory Section - Only show when no transactions */}
-      {transactions.length === 0 && (
+      {(!transactions || transactions.length === 0) && (
         <Card className="border-destructive bg-destructive/5">
           <CardHeader>
             <CardTitle className="text-destructive flex items-center gap-2">

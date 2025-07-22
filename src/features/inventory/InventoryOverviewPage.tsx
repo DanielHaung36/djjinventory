@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState, createRef, useEffect } from "react";
 import Header from "../../components/Header";
 import Grid from "@mui/material/Grid";
 import { useWebSocket } from "../../hooks/useWebSocket";
+import { useUserRegionAndWarehouses } from "../../hooks/useUserRegionAndWarehouses";
 import {
   Box,
   Button,
@@ -99,18 +100,32 @@ const InventoryOverviewPage: React.FC = () => {
   const [currentProduct, setCurrentProduct] =
     useState<InventoryRow | null>(null);
 
+  // 获取用户地区和仓库信息
+  const { regionId } = useUserRegionAndWarehouses();
+  console.log('🔍 [InventoryOverviewPage] regionId:', regionId);
+
+  // 构建查询参数
+  const queryParams = useMemo(() => {
+    const params = {
+      page: 1,
+      page_size: 1000,
+      region_id: regionId || 0,
+      warehouse_id: 0, // 0 表示查看该地区所有仓库的汇总
+    };
+    console.log('🔍 [InventoryOverviewPage] 查询参数:', params);
+    return params;
+  }, [regionId]);
+
   // 使用真实API获取库存数据
-  const { data: inventoryResponse, isLoading: loading, error, refetch } = useGetInventoryItemsQuery({
-    page: 1,
-    pageSize: 1000, // 获取较多数据用于表格显示
-    regionId: 0, // 所有地区
-    warehouseId: 0 // 所有仓库
-  });
+  const { data: inventoryResponse, isLoading: loading, error, refetch } = useGetInventoryItemsQuery(queryParams);
 
   const tableData = inventoryResponse?.items || [];
 
   // WebSocket监听库存更新
-  const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`;
+  const wsUrl = useMemo(() => 
+    `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`,
+    []
+  );
   const { isConnected, lastMessage } = useWebSocket(wsUrl);
   const [isFs, setIsFs] = useState(false);
   // 1) 用一个 map 来存每列头的 anchorEl

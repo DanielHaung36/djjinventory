@@ -21,8 +21,9 @@ api.interceptors.request.use(
     
     // 如果没有token，设置一个临时的默认认证
     if (!token) {
-      // 临时解决方案：设置一个默认的用户ID或跳过认证
+      // 临时解决方案：设置一个默认的用户ID和地区ID
       config.headers['X-User-ID'] = '1'
+      config.headers['X-Region-ID'] = '1'  // 添加默认地区ID
     }
     
     return config

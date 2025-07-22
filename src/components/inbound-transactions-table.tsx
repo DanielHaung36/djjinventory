@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Eye, FileText, Loader2, Wifi, WifiOff } from "lucide-react"
 import { InboundDetailDialog } from "./inbound-detail-dialog"
 import { useGetInboundListQuery } from "@/features/inventory/inventoryApi"
+import { useAppSelector } from "@/app/hooks"
+import { useUserRegionAndWarehouses } from "@/hooks/useUserRegionAndWarehouses"
 export function InboundTransactionsTable() {
   const router = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
@@ -17,6 +19,14 @@ export function InboundTransactionsTable() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [selectedInboundId, setSelectedInboundId] = useState<number | null>(null)
   const itemsPerPage = 10
+
+  // 获取当前用户和权限信息
+  const currentUser = useAppSelector((state) => state.auth.user)
+  const { region } = useUserRegionAndWarehouses()
+  const regionId = region?.id
+
+  // 权限检查：是否可以查看所有地区
+  const canViewAllRegions = currentUser?.user?.role === 'admin' || currentUser?.user?.role === 'financial_leader'
 
   // 防抖搜索
   useEffect(() => {
@@ -27,13 +37,31 @@ export function InboundTransactionsTable() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // 使用真实API获取入库列表（RTK Query会自动处理WebSocket更新）
-  const { data: inboundListResponse, isLoading, error, refetch } = useGetInboundListQuery({
-    page: currentPage,
-    pageSize: itemsPerPage,
-    search: debouncedSearchQuery || undefined,
-  })
+  // 构建查询参数（仿照 InventoryOverviewPageNew.tsx）
+  const queryParams = useMemo(() => {
+    const params = {
+      page: currentPage,
+      pageSize: itemsPerPage,
+      search: debouncedSearchQuery || undefined,
+      region_id: canViewAllRegions ? 0 : (regionId || 0)
+    }
+    
+    // 添加 region_id 逻辑
+    if (canViewAllRegions) {
+      // 高权限用户：查看所有地区
+      params.region_id = 0  // 0表示查看所有地区
+    } else {
+      // 普通用户：使用自己的地区ID  
+      params.region_id = regionId || 0
+    }
+    
+    return params
+  }, [currentPage, itemsPerPage, debouncedSearchQuery, canViewAllRegions, regionId])
 
+  // 使用真实API获取入库列表（RTK Query会自动处理WebSocket更新）
+  const { data: inboundListResponse, isLoading, error, refetch } = useGetInboundListQuery(queryParams)
+  console.log(queryParams.region_id);
+  
   const inboundTransactions = inboundListResponse?.items || []
   const totalItems = inboundListResponse?.total || 0
   const totalPages = inboundListResponse?.totalPages || 1

@@ -72,6 +72,7 @@ export interface InboundListParams {
   status?: string;
   operator?: string;
   search?: string;
+  region_id?:string;
 }
 
 export interface InboundListResponse {
@@ -350,14 +351,44 @@ export const inventoryApi = createApi({
     baseUrl: '/api/inventory',
     credentials: 'include',
     prepareHeaders: (headers, { getState }) => {
+      const state = getState() as RootState;
+      
       // 添加认证token
-      const token = (getState() as RootState).auth.token;
+      const token = state.auth.token;
       if (token) {
         headers.set('authorization', `Bearer ${token}`);
         console.log('🔑 [Inventory API] Using token:', token.substring(0, 20) + '...');
       } else {
         console.log('🔑 [Inventory API] No token found, using cookies only');
       }
+      
+      // 添加用户信息到请求头（后端需要用于获取地区信息）
+      const user = state.auth.user || state.auth.profile;
+      if (user && user.id) {
+        headers.set('X-User-ID', user.id.toString());
+        console.log('👤 [Inventory API] User ID:', user.id);
+        
+        // 如果用户有store_id，也添加到请求头
+        if (user.store_id) {
+          headers.set('X-Store-ID', user.store_id.toString());
+          console.log('🏪 [Inventory API] Store ID:', user.store_id);
+        }
+        
+        // 添加用户地区信息到请求头（方便后端获取）
+        if (user.storedetails?.region?.id) {
+          headers.set('X-Region-ID', user.storedetails.region.id.toString());
+          headers.set('X-Region-Name', user.storedetails.region.name || '');
+          console.log('🗺️ [Inventory API] Region:', user.storedetails.region.name, 'ID:', user.storedetails.region.id);
+        }
+        
+        // 添加用户角色信息（用于后端权限验证）
+        if (user.role || (user.roles && user.roles.length > 0)) {
+          const userRole = user.role || user.roles[0]?.Name || user.roles[0]?.name;
+          headers.set('X-User-Role', userRole);
+          console.log('👤 [Inventory API] User Role:', userRole);
+        }
+      }
+      
       headers.set('content-type', 'application/json');
       return headers;
     },
@@ -666,8 +697,13 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
         // 添加查询参数
         if (params.page) searchParams.append('page', params.page.toString())
         if (params.page_size) searchParams.append('page_size', params.page_size.toString())
-        if (params.region_id) searchParams.append('region_id', params.region_id.toString())
-        if (params.warehouse_id) searchParams.append('warehouse_id', params.warehouse_id.toString())
+        
+        // region_id 是必需参数，由调用方传递
+        if (params.region_id !== undefined) {
+          searchParams.append('region_id', params.region_id.toString())
+        }
+        
+        if (params.warehouse_id !== undefined) searchParams.append('warehouse_id', params.warehouse_id.toString())
         if (params.category) searchParams.append('category', params.category)
         if (params.status) searchParams.append('status', params.status)
         if (params.low_stock !== undefined) searchParams.append('low_stock', params.low_stock.toString())
@@ -913,6 +949,7 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
           status: params.status,
           operator: params.operator,
           search: params.search,
+          region_id:params.region_id,
         },
       }),
       transformResponse: (response: { success: boolean; data: any }) => {

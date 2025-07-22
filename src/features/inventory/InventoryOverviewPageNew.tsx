@@ -25,7 +25,6 @@ import {
 import {
   useGetInventoryItemsQuery,
   useGetInventoryStatsQuery,
-  useGetRegionsWithWarehousesQuery,
 } from "./inventoryApi"
 import {
   AlertTriangle,
@@ -45,7 +44,7 @@ import {
   TrendingDown,
 } from "lucide-react"
 import { LoadingScreen } from "@/components/LoadingScreen"
-
+import { useUserRegionAndWarehouses } from "../../hooks/useUserRegionAndWarehouses"
 // === 地区和仓库接口定义 ===
 // 使用类型定义文件中的接口
 
@@ -56,7 +55,6 @@ import { LoadingScreen } from "@/components/LoadingScreen"
 function InventoryOverviewPageNew() {
   // === 导航功能 ===
   const navigate = useNavigate()
-  
   // === 用户权限信息 ===
   const currentUser = useAppSelector(state => state.auth.profile.user);
   
@@ -107,6 +105,10 @@ function InventoryOverviewPageNew() {
 
   // === RTK Query数据获取 ===
   
+  // 使用新的hook获取用户地区和仓库信息
+  const { region, regionId, regionName, warehouses } = useUserRegionAndWarehouses()
+  console.log('✅ InventoryOverviewPageNew使用useUserRegionAndWarehouses:', { region, regionId, regionName, warehouses })
+  
   // 构建查询参数
   const queryParams = useMemo((): InventoryQueryParams => {
     const params: InventoryQueryParams = {
@@ -116,15 +118,15 @@ function InventoryOverviewPageNew() {
     
     // 根据用户权限处理地区参数
     if (canViewAllRegions) {
-      // 高权限用户：按选择的地区查询
+      // 高权限用户：按选择的地区查询，"all"表示查看所有地区
       if (selectedRegion && selectedRegion !== "all") {
         params.region_id = parseInt(selectedRegion)
+      } else {
+        params.region_id = 0  // 0表示查看所有地区
       }
     } else {
-      // 普通用户：传递选中的地区ID（后端会验证用户权限）
-      if (selectedRegion && selectedRegion !== "all") {
-        params.region_id = parseInt(selectedRegion)
-      }
+      // 普通用户：使用用户自己的地区ID
+      params.region_id = regionId || 0
     }
     
     if (selectedWarehouse !== "all") {
@@ -145,20 +147,23 @@ function InventoryOverviewPageNew() {
     });
     
     return params
-  }, [selectedRegion, selectedWarehouse, filterMode, page, pageSize, canViewAllRegions, currentUser])
-
-  // 获取地区数据
-  const { data: regionsResponse, isLoading: regionsLoading, error: regionsError, refetch: refetchRegions } = useGetRegionsWithWarehousesQuery()
+  }, [selectedRegion, selectedWarehouse, filterMode, page, pageSize, canViewAllRegions, currentUser, regionId])
   
-  // 调试：监听地区数据变化
-  useEffect(() => {
-    console.log('📍 地区数据变化监听:', {
-      regionsLoading,
-      regionsCount: regionsResponse?.data?.length || 0,
-      regionsError,
-      timestamp: new Date().toISOString()
-    });
-  }, [regionsResponse, regionsLoading, regionsError])
+  // 构建地区数据结构，以匹配原来的API响应格式
+  const regionsResponse = useMemo(() => {
+    if (region) {
+      return {
+        data: [{
+          ...region,
+          warehouses: warehouses
+        }]
+      }
+    }
+    return { data: [] }
+  }, [region, warehouses])
+  
+  const regionsLoading = false // 数据来自 Redux，不需要加载状态
+  const regionsError = null
   
   // 获取库存数据
   const { data: inventoryResponse, isLoading: inventoryLoading, error: inventoryError, refetch: refetchInventory } = useGetInventoryItemsQuery(queryParams)

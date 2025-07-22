@@ -30,6 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNavigate } from "react-router-dom"
 import { createInboundTransaction, getPurchaseOrders } from "@/lib/actions/inventory-actions"
+import { useUserRegionAndWarehouses } from "@/hooks/useUserRegionAndWarehouses"
 
 
 // 删除mock数据，使用真实API数据
@@ -175,13 +176,14 @@ export function OutboundForm() {
   const [showPickingList, setShowPickingList] = useState(false)
   const [customerNameInput, setCustomerNameInput] = useState("")
   const [referenceNumberInput, setReferenceNumberInput] = useState("")
-  const [isLoadingRegions, setIsLoadingRegions] = useState(false)
   const [isLoadingPurchaseOrders, setIsLoadingPurchaseOrders] = useState(false)
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
-  const [regions, setRegions] = useState<Region[]>([])
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [currentPO, setCurrentPO] = useState<PurchaseOrder | null>(null)
   const [selectedPOs, setSelectedPOs] = useState<PurchaseOrder[]>([])
+  
+  // 使用新的hook获取用户地区和仓库信息
+  const { region, regionId, regionName, warehouses } = useUserRegionAndWarehouses()
+  console.log('✅ 出库表单使用useUserRegionAndWarehouses:', { region, regionId, regionName, warehouses })
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -292,60 +294,19 @@ export function OutboundForm() {
     fetchCurrentUser()
   }, [])
 
-  // 加载地区和仓库数据
+  // 当用户地区信息可用时，自动设置表单
   useEffect(() => {
-    const loadRegionsAndWarehouses = async () => {
-      try {
-        setIsLoadingRegions(true)
-        const response = await fetch('/api/inventory/regions')
-        if (response.ok) {
-          const data = await response.json()
-          console.log('Regions API response:', data)
-          
-          // 确保data是数组格式
-          let regionsArray: Region[] = []
-          if (Array.isArray(data)) {
-            regionsArray = data
-          } else if (data && data.data && Array.isArray(data.data)) {
-            regionsArray = data.data
-          } else {
-            console.warn('Unexpected regions API response format:', data)
-          }
-          
-          setRegions(regionsArray)
-          
-          // 根据用户权限处理地区选择
-          if (regionsArray.length === 1) {
-            // 用户只有一个地区权限，自动选择
-            form.setValue("regionId", regionsArray[0].id.toString())
-            setWarehouses(regionsArray[0].warehouses || [])
-            console.log('✅ 自动选择用户唯一地区:', regionsArray[0].name, '仓库数量:', regionsArray[0].warehouses?.length)
-          } else if (regionsArray.length > 1) {
-            // 多个地区，需要手动选择
-            console.log('✅ 用户有多个地区，显示供选择')
-          }
-        } else {
-          console.error('Failed to fetch regions:', response.status, response.statusText)
-          toast({
-            title: "Error",
-            description: `Failed to load regions: ${response.status}`,
-            variant: "destructive",
-          })
-        }
-      } catch (error) {
-        console.error("Failed to load regions:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load regions. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingRegions(false)
+    if (regionId) {
+      form.setValue("regionId", regionId.toString())
+      console.log('✅ 自动设置用户地区:', regionName, 'ID:', regionId)
+      
+      // 如果只有一个仓库，自动选择
+      if (warehouses.length === 1) {
+        form.setValue("warehouseId", warehouses[0].id.toString())
+        console.log('✅ 自动选择唯一仓库:', warehouses[0].name)
       }
     }
-
-    loadRegionsAndWarehouses()
-  }, [currentUser]) // 依赖currentUser，确保用户信息加载后再执行
+  }, [regionId, regionName, warehouses, form])
 
     useEffect(() => {
     const loadPurchaseOrders = async () => {
@@ -369,13 +330,10 @@ export function OutboundForm() {
   }, [])
 
 
-    // 处理地区变化，更新仓库列表
+  // 处理地区变化（现在地区是固定的，所以这个函数可能不需要了）
   const handleRegionChange = (regionId: string) => {
-    form.setValue("regionId", regionId)
-    form.setValue("warehouseId", "") // 清空仓库选择
-    
-    const selectedRegion = regions.find((r: Region) => r.id.toString() === regionId)
-    setWarehouses(selectedRegion?.warehouses || [])
+    // 由于地区现在是从用户profile中获取的，不应该允许更改
+    console.warn('地区不应该被更改，用户地区是固定的:', regionName)
   }
 
   // 处理顾客选择
@@ -872,7 +830,7 @@ const handleRemoveSO= (poId: string) => {
                 )}
               /> */}
             {/* Basic Information */}
-              {/* Region Selection */}
+              {/* Region Selection - 现在是只读的 */}
               <FormField
                 control={form.control}
                 name="regionId"
@@ -882,37 +840,24 @@ const handleRemoveSO= (poId: string) => {
                     <Select
                       value={field.value}
                       onValueChange={handleRegionChange}
-                      disabled={isLoadingRegions || regions.length <= 1}
+                      disabled={true} // 地区不可更改
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue 
-                            placeholder={
-                              regions.length === 1 
-                                ? regions[0]?.name 
-                                : "Select region"
-                            } 
-                          />
+                          <SelectValue placeholder={regionName || "未分配地区"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {regions.map((region: Region) => (
+                        {region && (
                           <SelectItem key={region.id} value={region.id.toString()}>
                             {region.name}
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
-                    {regions.length === 1 && (
-                      <FormDescription>
-                        您被分配到 {regions[0]?.name} 地区，仓库数量: {warehouses.length}
-                      </FormDescription>
-                    )}
-                    {regions.length > 1 && (
-                      <FormDescription>
-                        请选择入库地区
-                      </FormDescription>
-                    )}
+                    <FormDescription>
+                      您被分配到 {regionName} 地区，仓库数量: {warehouses.length}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -936,7 +881,7 @@ const handleRemoveSO= (poId: string) => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {warehouses.map((warehouse: Warehouse) => (
+                        {warehouses.map((warehouse) => (
                           <SelectItem key={warehouse.id} value={warehouse.id.toString()}>
                             {warehouse.name}
                           </SelectItem>

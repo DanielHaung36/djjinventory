@@ -51,7 +51,7 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
                             {
                                 icon: <PersonIcon />,
                                 label: "Customer",
-                                value: order.customer,
+                                value: order.customer?.name || `Customer ID: ${order.customerId}`,
                                 color: "#8B5CF6",
                             },
                             {

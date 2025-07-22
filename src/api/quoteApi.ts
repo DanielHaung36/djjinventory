@@ -75,8 +75,8 @@ export const quoteApi = {
   },
 
   // 将Quote转换为Order
-  async convertQuoteToOrder(quoteId: number): Promise<SalesOrder> {
-    const response = await api.post(`quotes/${quoteId}/convert-to-order`)
+  async convertQuoteToOrder(quoteId: number, data: { warehouse_id: number; created_by?: number }): Promise<SalesOrder> {
+    const response = await api.post(`quotes/${quoteId}/convert-to-order`, data)
     return response.data
   },
 

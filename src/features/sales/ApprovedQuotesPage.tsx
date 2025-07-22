@@ -18,13 +18,21 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  FormControl
 } from '@mui/material'
 import { ShoppingCart, CheckCircle, Warning } from '@mui/icons-material'
 import { quoteApi } from '../../api/quoteApi'
 import type { Quote } from '../../api/quoteApi'
 import { orderApi } from '../../api/orderApi'
 import type { SalesOrder } from './types/sales-order'
+import { useUserRegionAndWarehouses } from '@/hooks/useUserRegionAndWarehouses'
+import { useGetRegionsWithWarehousesQuery } from '@/features/inventory/inventoryApi'
+import { useAppSelector } from '@/app/hooks'
+import { useWebSocket } from '@/hooks/useWebSocket'
 
 const ApprovedQuotesPage: React.FC = () => {
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -33,6 +41,34 @@ const ApprovedQuotesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [convertedOrder, setConvertedOrder] = useState<SalesOrder | null>(null)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  
+  // 仓库选择相关状态
+  const [showWarehouseDialog, setShowWarehouseDialog] = useState(false)
+  const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null)
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null)
+  
+  // 获取用户权限和仓库信息
+  const currentUser = useAppSelector((state) => state.auth.user)
+  const { warehouses: userWarehouses } = useUserRegionAndWarehouses()
+  const { data: regionsData } = useGetRegionsWithWarehousesQuery()
+  
+  // 检查是否是管理员
+  const isAdmin = currentUser?.user?.role === 'admin' || 
+                  currentUser?.user?.role === 'financial_leader'
+
+  // WebSocket连接监听报价单事件
+  const quotesWebSocketUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/quotes`
+  const { lastMessage } = useWebSocket(quotesWebSocketUrl)
+
+  // 监听WebSocket消息
+  useEffect(() => {
+    if (lastMessage && lastMessage.type === 'quoteConverted') {
+      console.log('📨 [报价单] 收到报价单转换通知:', lastMessage.data)
+      const { quoteId } = lastMessage.data
+      // 从列表中移除已转换的报价单
+      setQuotes(prev => prev.filter(q => q.id !== quoteId))
+    }
+  }, [lastMessage])
 
   // 加载已批准的Quotes
   useEffect(() => {
@@ -63,18 +99,55 @@ const ApprovedQuotesPage: React.FC = () => {
     }
   }
 
-  // 转换Quote为Order
-  const handleConvertToOrder = async (quoteId: number) => {
+  // 获取可用仓库列表
+  const getAvailableWarehouses = () => {
+    if (isAdmin) {
+      // 管理员：获取所有地区的仓库
+      return regionsData?.data?.flatMap(region => 
+        region.warehouses?.map(warehouse => ({
+          ...warehouse,
+          regionName: region.name
+        })) || []
+      ) || []
+    } else {
+      // 普通用户：只显示自己地区的仓库
+      return userWarehouses?.map(warehouse => ({
+        ...warehouse,
+        regionName: undefined
+      })) || []
+    }
+  }
+
+  // 点击转换按钮，显示仓库选择弹窗
+  const handleConvertToOrder = (quoteId: number) => {
+    const warehouses = getAvailableWarehouses()
+    
+    if (warehouses.length === 0) {
+      setError('没有可用的仓库，请联系管理员')
+      return
+    }
+    
+    setSelectedQuoteId(quoteId)
+    setSelectedWarehouseId(null)
+    setShowWarehouseDialog(true)
+  }
+
+  // 确认转换为订单
+  const handleConfirmConvertToOrder = async () => {
+    if (!selectedQuoteId || !selectedWarehouseId) return
+    
     try {
-      setConverting(quoteId)
+      setConverting(selectedQuoteId)
       setError(null)
+      setShowWarehouseDialog(false)
       
-      const order = await quoteApi.convertQuoteToOrder(quoteId)
+      // 调用转换API，传入仓库ID
+      const order = await quoteApi.convertQuoteToOrder(selectedQuoteId, {
+        warehouse_id: selectedWarehouseId,
+        created_by: currentUser?.user?.id
+      })
       
-      // 更新quotes列表，移除已转换的quote
-      setQuotes(prev => prev.filter(q => q.id !== quoteId))
-      
-      // 显示成功对话框
+      // 显示成功对话框（WebSocket会自动更新列表）
       setConvertedOrder(order)
       setShowSuccessDialog(true)
       
@@ -83,6 +156,8 @@ const ApprovedQuotesPage: React.FC = () => {
       setError(err.response?.data?.error || 'Failed to convert quote to order')
     } finally {
       setConverting(null)
+      setSelectedQuoteId(null)
+      setSelectedWarehouseId(null)
     }
   }
 
@@ -289,6 +364,79 @@ const ApprovedQuotesPage: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setShowSuccessDialog(false)}>
             确定
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 仓库选择对话框 */}
+      <Dialog open={showWarehouseDialog} onClose={() => setShowWarehouseDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          选择发货仓库
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            {isAdmin ? "请选择此订单的发货仓库（所有地区）" : "请选择此订单的发货仓库"}
+          </Typography>
+          
+          <FormControl component="fieldset" sx={{ width: '100%', mt: 2 }}>
+            <RadioGroup
+              value={selectedWarehouseId || ''}
+              onChange={(e) => setSelectedWarehouseId(Number(e.target.value))}
+            >
+              {getAvailableWarehouses().map(warehouse => (
+                <FormControlLabel
+                  key={warehouse.id}
+                  value={warehouse.id}
+                  control={<Radio />}
+                  label={
+                    <Box>
+                      <Typography variant="body1" fontWeight="medium">
+                        {warehouse.name}
+                      </Typography>
+                      {warehouse.location && (
+                        <Typography variant="body2" color="text.secondary">
+                          {warehouse.location}
+                        </Typography>
+                      )}
+                      {warehouse.regionName && (
+                        <Chip 
+                          label={warehouse.regionName} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                          sx={{ mt: 0.5 }}
+                        />
+                      )}
+                    </Box>
+                  }
+                  sx={{ 
+                    alignItems: 'flex-start',
+                    py: 1,
+                    border: '1px solid transparent',
+                    borderRadius: 1,
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                      borderColor: 'primary.main'
+                    }
+                  }}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setShowWarehouseDialog(false)}
+            disabled={converting !== null}
+          >
+            取消
+          </Button>
+          <Button 
+            onClick={handleConfirmConvertToOrder}
+            disabled={!selectedWarehouseId || converting !== null}
+            variant="contained"
+          >
+            确认转换为订单
           </Button>
         </DialogActions>
       </Dialog>

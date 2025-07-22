@@ -107,15 +107,15 @@ export const authApi = createApi({
         baseUrl: import.meta.env.VITE_API_URL,
         credentials: 'include',
         // prepareHeaders 用来在每个请求的 Header 里自动加上 token
-        // prepareHeaders: (headers, { getState }) => {
-        //     // 从 Redux state 里读出 token
-        //     const token = (getState() as any).auth.token
-        //     if (token) {
-        //         // 如果有 token，就设置 Authorization：Bearer <token>
-        //         headers.set('Authorization', `Bearer ${token}`)
-        //     }
-        //     return headers
-        // },
+        prepareHeaders: (headers, { getState }) => {
+            // 从 Redux state 里读出 token
+            const token = (getState() as any).auth.token
+            if (token) {
+                // 如果有 token，就设置 Authorization：Bearer <token>
+                headers.set('Authorization', `Bearer ${token}`)
+            }
+            return headers
+        },
         fetchFn: async (input, init) => {
             console.log('🔐 [Auth API] Request:', {
                 url: input,
