@@ -71,10 +71,8 @@ export const customerApi = createApi({
         // 等待初次请求完成
         await cacheDataLoaded
         // 建立 ws 连接到 /ws/customers
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const ws = new WebSocket(
-          `${protocol}//${window.location.host}/ws/customers`
-        )
+        const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/customers`
+        const ws = new WebSocket(wsUrl)
         ws.onmessage = ({ data }) => {
           const msg = JSON.parse(data) as {
             event: 'customersCreated' | 'customersUpdated' | 'customersDeleted'

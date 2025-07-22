@@ -451,8 +451,8 @@ export const quotesApi = createApi({
       ) {
         await cacheDataLoaded
         
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/quotes`)
+        const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/quotes`
+        const ws = new WebSocket(wsUrl)
         
         ws.onmessage = ({ data }) => {
           try {

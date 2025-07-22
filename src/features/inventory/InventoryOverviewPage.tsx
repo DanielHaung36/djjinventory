@@ -101,8 +101,7 @@ const InventoryOverviewPage: React.FC = () => {
     useState<InventoryRow | null>(null);
 
   // WebSocket监听库存更新
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws/inventory`;
+  const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`;
   const { isConnected, lastMessage } = useWebSocket(wsUrl);
   const [isFs, setIsFs] = useState(false);
   // 1) 用一个 map 来存每列头的 anchorEl

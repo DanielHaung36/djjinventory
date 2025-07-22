@@ -106,7 +106,7 @@ function notifyConnectionChange(connected: boolean) {
 }
 
 // 应用启动时立即初始化WebSocket连接
-const WEBSOCKET_URL = 'wss://192.168.1.244:8080/ws/inventory';
+const WEBSOCKET_URL = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`;
 if (typeof window !== 'undefined') {
   console.log('🚀 [WebSocket] 应用启动时准备初始化WebSocket...');
   // 延迟一点点，确保DOM加载完成

@@ -957,12 +957,10 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
         await cacheDataLoaded
         
         // 建立ws连接到 /ws/inventory
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const ws = new WebSocket(
-          `${protocol}//${window.location.host}/ws/inventory`
-        )
+        const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`
+        const ws = new WebSocket(wsUrl)
         
-        console.log('🔌 [InventoryAPI] 建立WebSocket连接:', `${protocol}//${window.location.host}/ws/inventory`)
+        console.log('🔌 [InventoryAPI] 建立WebSocket连接:', wsUrl)
         
         ws.onopen = () => {
           console.log('✅ [InventoryAPI] WebSocket连接成功')
@@ -1070,12 +1068,10 @@ getProductStock: builder.query<RegionInventoryResponse, number>({
         await cacheDataLoaded
         
         // 建立ws连接到 /ws/inventory
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const ws = new WebSocket(
-          `${protocol}//${window.location.host}/ws/inventory`
-        )
+        const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`
+        const ws = new WebSocket(wsUrl)
         
-        console.log('🔌 [InventoryAPI-Outbound] 建立WebSocket连接:', `${protocol}//${window.location.host}/ws/inventory`)
+        console.log('🔌 [InventoryAPI-Outbound] 建立WebSocket连接:', wsUrl)
         
         ws.onopen = () => {
           console.log('✅ [InventoryAPI-Outbound] WebSocket连接成功')
