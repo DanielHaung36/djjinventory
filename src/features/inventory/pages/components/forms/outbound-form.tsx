@@ -16,8 +16,10 @@ import { FileUploader } from "../file-uploader"
 import { OutboundItemsTable } from "../outbound-items-table"
 import { createOutboundTransaction, getSalesOrders } from "@/lib/actions/inventory-actions"
 import { useSubmitManualOutboundMutation } from "@/features/inventory/inventoryApi"
+import { useGetCustomersQuery } from "@/features/customer/customerApi"
 import type { Customer, OutboundItem, SalesOrder,PurchaseOrder } from "@/lib/types"
-import { PlusCircle, FileText, ClipboardList, Tag, ListFilter, ShoppingBag, Loader2 } from "lucide-react"
+import type { Customer as CustomerType } from "@/features/customer/types"
+import { PlusCircle, FileText, ClipboardList, Tag, ListFilter, ShoppingBag, Loader2, Search, Plus, X } from "lucide-react"
 import { AddItemDialog } from "../dialogs/add-item-dialog"
 import { SelectSalesOrderDialog } from "../dialogs/select-sales-order-dialog"
 import { SalesOrderPickingList } from "../picking-lists/sales-order-picking-list"
@@ -30,12 +32,113 @@ import { useNavigate } from "react-router-dom"
 import { createInboundTransaction, getPurchaseOrders } from "@/lib/actions/inventory-actions"
 
 
-// Mock data for customers
-const customers: Customer[] = [
-  { id: "1", name: "Retail Store A" },
-  { id: "2", name: "Wholesale Distributor B" },
-  { id: "3", name: "Online Marketplace C" },
-]
+// 删除mock数据，使用真实API数据
+
+// CustomerSelector组件（参考Quote表单实现）
+function CustomerSelector({
+  value,
+  onValueChange,
+  disabled,
+  customers = [],
+  loading = false,
+}: {
+  value?: number
+  onValueChange: (customer: CustomerType | null) => void
+  disabled?: boolean
+  customers?: CustomerType[]
+  loading?: boolean
+}) {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
+
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm) return customers
+    return customers.filter(
+      (customer) =>
+        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (customer.abn && customer.abn.includes(searchTerm)),
+    )
+  }, [searchTerm, customers])
+
+  const selectedCustomer = customers.find((customer) => customer.id === value)
+
+  // 当选择客户时更新搜索框显示
+  useEffect(() => {
+    if (selectedCustomer) {
+      setSearchTerm(selectedCustomer.name)
+    }
+  }, [selectedCustomer])
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search customers by name, contact, or ABN..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          className="pl-10"
+          disabled={disabled || loading}
+        />
+        {loading && (
+          <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="relative">
+          <div className="absolute top-0 left-0 right-0 z-50 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="border-t">
+              {loading ? (
+                <div className="p-4 text-center text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                  Loading customers...
+                </div>
+              ) : filteredCustomers.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">No customers found</div>
+              ) : (
+                filteredCustomers.map((customer) => (
+                  <Button
+                    key={customer.id}
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start text-left h-auto p-3 border-b last:border-b-0"
+                    onClick={() => {
+                      onValueChange(customer)
+                      setSearchTerm(customer.name)
+                      setIsOpen(false)
+                    }}
+                  >
+                    <div className="w-full">
+                      <div className="font-medium">{customer.name}</div>
+                      <div className="text-sm text-gray-500">
+                        {customer.contact} • {customer.abn || 'No ABN'}
+                      </div>
+                    </div>
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedCustomer && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="font-medium text-blue-900">{selectedCustomer.name}</div>
+          <div className="text-sm text-blue-700">
+            {selectedCustomer.contact} • {selectedCustomer.phone} • {selectedCustomer.email}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // 1) schema 加字段
 const formSchema = z.object({
@@ -44,7 +147,7 @@ const formSchema = z.object({
   purchaseOrderIds: z.array(z.string()).optional(),
   regionId:         z.string().min(1, "Region is required"),
   warehouseId:      z.string().min(1, "Warehouse is required"),
-  customerName:     z.string().optional(),
+  customerId:       z.string().optional(),
   referenceNumber:  z.string().min(1),
   shipmentDate:     z.string().min(1),
   receiptDate: z.string().min(1, "Receipt date is required"),
@@ -58,6 +161,8 @@ export function OutboundForm() {
   const router = useNavigate()
   const [searchParams] = useSearchParams()
   const [submitManualOutbound, { isLoading: isSubmitting }] = useSubmitManualOutboundMutation()
+  const { data: customers = [], isLoading: isLoadingCustomers } = useGetCustomersQuery()
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>()
   const [poItems, setPoItems] = useState<OutboundItem[]>([])
   const [items, setItems] = useState<OutboundItem[]>([])
   const [manualItems, setManualItems] = useState<OutboundItem[]>([])
@@ -84,7 +189,7 @@ export function OutboundForm() {
       purchaseOrderIds: [],
       regionId: "",
       warehouseId: "",
-      customerName: "",
+      customerId: "",
       referenceNumber: "",
       shipmentDate: new Date().toISOString().split("T")[0],
       receiptDate: new Date().toISOString().split("T")[0],
@@ -152,13 +257,12 @@ export function OutboundForm() {
       // 自动添加该产品到手动项目列表
       const newItem: OutboundItem = {
         id: `manual-from-inventory-${productId}`,
+        productId: Number(productId),
         name: decodeURIComponent(productName),
         category: "Parts", // 默认分类，用户可以在对话框中修改
-        qty: 1,
-        price: 0,
+        quantity: 1, // 🔥 统一使用quantity字段
+        unitPrice: 0, // 🔥 统一使用unitPrice字段
         sku: `SKU-${productId}`,
-        quantity: 1, // 兼容字段
-        unitPrice: 0, // 兼容字段
         location: "",
         lotNumber: "",
         expirationDate: "",
@@ -274,6 +378,17 @@ export function OutboundForm() {
     setWarehouses(selectedRegion?.warehouses || [])
   }
 
+  // 处理顾客选择
+  const handleCustomerSelect = (customer: CustomerType | null) => {
+    if (customer) {
+      setSelectedCustomerId(customer.id)
+      form.setValue("customerId", customer.id.toString())
+    } else {
+      setSelectedCustomerId(undefined)
+      form.setValue("customerId", "")
+    }
+  }
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
         console.log('🔍 Debug - Items state:', {
@@ -296,19 +411,23 @@ export function OutboundForm() {
     try {
       // 只处理手动出库（非订单出库）
       if (values.transactionTypes.includes("non-order-based") && manualItems.length > 0) {
+        // 根据selectedCustomerId找到对应的customer name
+        const selectedCustomer = selectedCustomerId ? customers.find(c => c.id === selectedCustomerId) : null
+        const customerName = selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.company})` : undefined
+        
         const result = await submitManualOutbound({
-          regionId: parseInt(values.regionId),
-          warehouseId: parseInt(values.warehouseId),
+          regionId: values.regionId, // 发送字符串而不是数字
+          warehouseId: values.warehouseId, // 发送字符串而不是数字
           referenceNumber: values.referenceNumber,
           shipmentDate: values.shipmentDate,
-          customerName: values.customerName || undefined,
+          customerName: customerName,
           notes: values.notes || undefined,
           items: manualItems.map(item => ({
-            product_id: parseInt(item.id.split('-')[2]) || 1, // 从ID中提取productId
+            product_id: item.productId || 1, // 🔥 直接使用productId
             product_name: item.name,
-            category: item.type || "未分类",
-            quantity: Math.abs(item.quantity || 0), // 确保数量为正数
-            unit_price: item.unitPrice || 0,
+            category: item.category || "未分类", // 🔥 统一使用category字段
+            quantity: Math.abs(item.quantity || 0), // 🔥 统一使用quantity字段
+            unit_price: item.unitPrice || 0, // 🔥 统一使用unitPrice字段
             notes: `出库: ${item.name}`
           })),
           file_paths: values.files?.map((file: File) => file.name) || []
@@ -831,19 +950,16 @@ const handleRemoveSO= (poId: string) => {
 
               <FormField
                 control={form.control}
-                name="customerName"
+                name="customerId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Customer Name (Optional)</FormLabel>
+                    <FormLabel>Customer (Optional)</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        value={customerNameInput}
-                        onChange={(e) => {
-                          setCustomerNameInput(e.target.value)
-                          field.onChange(e.target.value)
-                        }}
-                        placeholder="Enter customer name (optional)"
+                      <CustomerSelector 
+                        value={selectedCustomerId} 
+                        onValueChange={handleCustomerSelect}
+                        customers={customers}
+                        loading={isLoadingCustomers}
                         disabled={isOrderBased && selectedSOs.length > 0 && !isManualEntry}
                       />
                     </FormControl>

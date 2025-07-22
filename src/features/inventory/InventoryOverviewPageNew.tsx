@@ -44,6 +44,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react"
+import { LoadingScreen } from "@/components/LoadingScreen"
 
 // === 地区和仓库接口定义 ===
 // 使用类型定义文件中的接口
@@ -656,6 +657,16 @@ function InventoryOverviewPageNew() {
       </div>,
     ],
   })
+
+  // 如果还在加载数据，显示全局加载状态
+  if (isLoading) {
+    return (
+      <LoadingScreen 
+        title="加载库存数据" 
+        description="正在获取最新的库存信息..." 
+      />
+    )
+  }
 
   return (
     <div className="p-2 bg-gray-50 min-h-screen">

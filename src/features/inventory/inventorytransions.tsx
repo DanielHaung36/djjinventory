@@ -39,6 +39,7 @@ import {
   CheckCircle,
 } from "lucide-react"
 import { format, parseISO } from "date-fns"
+import { LoadingScreen } from "@/components/LoadingScreen"
 import { AdvancedPagination } from "@/components/advanced-pagination"
 // import { type InventoryRow } from "./InventoryModel" // 暂时注释掉，使用本地接口定义
 import { BarcodeSVG } from "../barcodegenerator/BarcodeSVG"
@@ -358,7 +359,14 @@ BARCODE: ${inventory.partNumberAU}`
 
 
   // Loading & error i18n
-  if (productStockLoading  ||  txLoading) return <div>{t("transactions.loading")}</div>
+  if (productStockLoading || txLoading) {
+    return (
+      <LoadingScreen 
+        title={t("transactions.loadingInventoryData")}
+        description="正在获取库存交易记录..."
+      />
+    )
+  }
   if (productStockError) return <div>{t("transactions.loadInventoryError")}</div>
   if (!inventory) return <div>{t("transactions.notFound")}</div>
   if (txError) return <div>{t("transactions.loadTxError")}</div>

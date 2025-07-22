@@ -38,13 +38,13 @@ export function OutboundItemsTable({ items, updateItem, removeItem, renderItemBa
                   {renderItemBadge && renderItemBadge(item)}
                 </div>
               </TableCell>
-              <TableCell>{item.type}</TableCell>
+              <TableCell>{item.category}</TableCell>
               <TableCell>
                 <Input
                   type="number"
                   min="1"
-                  value={item.qty}
-                  onChange={(e) => updateItem(item.id, "qty", Number.parseInt(e.target.value) || 1)}
+                  value={item.quantity}
+                  onChange={(e) => updateItem(item.id, "quantity", Number.parseInt(e.target.value) || 1)}
                   className="w-20"
                 />
               </TableCell>
@@ -53,13 +53,13 @@ export function OutboundItemsTable({ items, updateItem, removeItem, renderItemBa
                   type="number"
                   step="0.01"
                   min="0"
-                  value={item.price}
-                  onChange={(e) => updateItem(item.id, "price", Number.parseFloat(e.target.value) || 0)}
+                  value={item.unitPrice}
+                  onChange={(e) => updateItem(item.id, "unitPrice", Number.parseFloat(e.target.value) || 0)}
                   className="w-24"
                 />
               </TableCell>
               <TableCell>
-                {item.type === "Host" ? (
+                {item.category === "Host" ? (
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Input

@@ -42,6 +42,7 @@ import {
   flexRender,
 } from "material-react-table";
 import { data as mockData } from "./data/InventoryData";
+import { useGetInventoryItemsQuery } from "./inventoryApi";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
@@ -94,11 +95,19 @@ const ResponsiveTitle: React.FC = () => {
 
 const InventoryOverviewPage: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [tableData, setTableData] = useState<InventoryRow[]>(mockData);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [currentProduct, setCurrentProduct] =
     useState<InventoryRow | null>(null);
+
+  // 使用真实API获取库存数据
+  const { data: inventoryResponse, isLoading: loading, error, refetch } = useGetInventoryItemsQuery({
+    page: 1,
+    pageSize: 1000, // 获取较多数据用于表格显示
+    regionId: 0, // 所有地区
+    warehouseId: 0 // 所有仓库
+  });
+
+  const tableData = inventoryResponse?.items || [];
 
   // WebSocket监听库存更新
   const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`;
@@ -280,25 +289,20 @@ const InventoryOverviewPage: React.FC = () => {
     []
   );
 
-  useEffect(() => {
-    fetchInventory()
-      .then((data) => setTableData(data))
-      .finally(() => setLoading(false));
-  }, []);
+  // 移除模拟数据获取，使用真实API
 
   // WebSocket消息处理
   useEffect(() => {
     if (lastMessage) {
       console.log('📨 [库存页面] 收到WebSocket消息:', lastMessage);
       
-      // 检查是否是库存更新消息 (后端发送的格式)
-      if (lastMessage.data?.event === 'inventoryUpdated') {
+      // 检查是否是库存更新消息 (统一格式)
+      if (lastMessage.type === 'inventory_update') {
         console.log('🔄 [库存页面] 库存已更新，刷新数据...');
         
         // 重新获取库存数据
-        fetchInventory()
-          .then((data) => {
-            setTableData(data);
+        refetch()
+          .then(() => {
             console.log('✅ [库存页面] 库存数据已刷新');
           })
           .catch((error) => {
@@ -306,7 +310,7 @@ const InventoryOverviewPage: React.FC = () => {
           });
       }
     }
-  }, [lastMessage]);
+  }, [lastMessage, refetch]);
 
   const table = useMaterialReactTable({
     columns,
@@ -441,24 +445,16 @@ const InventoryOverviewPage: React.FC = () => {
     // ),
         onCreatingRowCancel: () => setValidationErrors({}),
     onCreatingRowSave: ({ values, table }) => {
-      setTableData((prev) => [
-        ...prev||[],
-        {
-          ...values,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ]);
+      // 刷新数据而不是手动更新状态
+      refetch();
       table.setCreatingRow(null); // 新建后关闭编辑行
     },
     onEditingRowCancel: () => setValidationErrors({}),
     onEditingRowSave: ({ row, table, values }) => {
       console.log(values);
       console.log(row);
-      // table.setEditingRow(row); //exit editing mode
-      setTableData((prev) =>
-        prev?.map((row) => (row.djj_code === values.djj_code ? { ...row, ...values } : row))
-      );
+      // 刷新数据而不是手动更新状态
+      refetch();
       table.setEditingRow(null); //exit editing mode
     },
     muiToolbarAlertBannerProps:{
@@ -525,9 +521,8 @@ const InventoryOverviewPage: React.FC = () => {
           open={!!dialogMode}
           onClose={closeDialog}
           onSuccess={(updated) => {
-            setTableData((old) =>
-              old.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
-            );
+            // 刷新数据而不是手动更新状态
+            refetch();
           }}
         />
       </Container>

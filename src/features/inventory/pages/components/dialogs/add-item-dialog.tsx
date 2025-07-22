@@ -149,13 +149,14 @@ export function AddItemDialog({ open, onClose, onAdd, mode = "inbound" }: AddIte
       productId: values.product.id, // 🔥 添加产品ID - 关键字段！
       djjCode: values.product.djj_code, // 添加DJJ编码
       name: values.product.name_cn,
-      category: PRODUCT_TYPES[values.type as keyof typeof PRODUCT_TYPES], // 统一使用category字段
-      qty: values.quantity,
-      price: values.unitPrice,
+      category: PRODUCT_TYPES[values.type as keyof typeof PRODUCT_TYPES], // 🔥 统一使用category字段
+      quantity: values.quantity, // 🔥 统一使用quantity字段
+      unitPrice: values.unitPrice, // 🔥 统一使用unitPrice字段
       vin: values.vin,
       serial: values.serial,
       addLoan: values.addLoan,
       remark: values.remark,
+      source: "manual",
     })
 
     form.reset()

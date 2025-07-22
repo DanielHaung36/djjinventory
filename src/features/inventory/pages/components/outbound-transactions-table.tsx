@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useGetOutboundListQuery } from "../../../../features/inventory/inventoryApi"
+import { useWebSocket } from "../../../../hooks/useWebSocket"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,10 @@ export function OutboundTransactionsTable() {
   const [selectedOutboundId, setSelectedOutboundId] = useState<number | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const itemsPerPage = 10
+
+  // WebSocket监听库存更新
+  const wsUrl = `${import.meta.env.VITE_API_HOST.replace(/^https/, 'wss').replace(/^http/, 'ws')}/ws/inventory`;
+  const { isConnected, lastMessage } = useWebSocket(wsUrl);
 
   // 使用RTK Query获取出库列表数据
   const { data: outboundListResponse, isLoading, error, refetch } = useGetOutboundListQuery({
@@ -43,6 +48,19 @@ export function OutboundTransactionsTable() {
     console.log('🔄 [OutboundTable] 刷新出库列表数据')
     refetch()
   }
+
+  // WebSocket消息处理
+  useEffect(() => {
+    if (lastMessage) {
+      console.log('📨 [出库记录] 收到WebSocket消息:', lastMessage);
+      
+      // 检查是否是库存更新消息 (统一格式)
+      if (lastMessage.type === 'inventory_update') {
+        console.log('🔄 [出库记录] 库存已更新，刷新出库记录数据...');
+        refetch();
+      }
+    }
+  }, [lastMessage, refetch]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
