@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { X, Download, Printer, Plus, Check, Package, Calendar, User, FileText } from "lucide-react"
+import { X, Download, Printer, Plus, Check, Package, Calendar, User, FileText, Loader2 } from "lucide-react"
 import type { SalesOrder, OrderItem } from "./types/sales-order"
+import { useDownloadPickingListPDFMutation } from "./salesApi"
 
 interface PickingListDrawerProps {
   isOpen: boolean
@@ -27,6 +28,7 @@ export default function PickingListDrawer({ isOpen, onClose, order }: PickingLis
   )
 
   const [showCompleted, setShowCompleted] = useState(true)
+  const [downloadPickingListPDF, { isLoading: isDownloading }] = useDownloadPickingListPDFMutation()
 
   const formatCurrency = (amount: number) => {
     return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -82,9 +84,28 @@ export default function PickingListDrawer({ isOpen, onClose, order }: PickingLis
     window.print()
   }
 
-  const handleDownload = () => {
-    // Generate and download picking list PDF
-    alert("Downloading picking list PDF...")
+  const handleDownload = async () => {
+    try {
+      // 调用API生成PDF
+      const pdfBlob = await downloadPickingListPDF(order.id).unwrap()
+      
+      // 创建下载链接
+      const url = window.URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `picking-list-${order.orderNumber}.pdf`
+      
+      // 触发下载
+      document.body.appendChild(link)
+      link.click()
+      
+      // 清理
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download picking list PDF:', error)
+      alert('Failed to download PDF. Please try again.')
+    }
   }
 
   const handleGenerateNewOrder = () => {
@@ -107,7 +128,7 @@ export default function PickingListDrawer({ isOpen, onClose, order }: PickingLis
             <div>
               <h2 className="text-2xl font-bold">Picking List</h2>
               <p className="text-blue-100 mt-1">
-                {order.orderNumber} - {order.customer}
+                {order.orderNumber} - {order.customer?.name || 'Unknown Customer'}
               </p>
             </div>
             <button onClick={onClose} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
@@ -139,7 +160,7 @@ export default function PickingListDrawer({ isOpen, onClose, order }: PickingLis
               <User className="w-4 h-4 text-gray-500" />
               <div>
                 <p className="text-gray-500">Customer</p>
-                <p className="font-medium">{order.customer}</p>
+                <p className="font-medium">{order.customer?.name || 'Unknown Customer'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -170,10 +191,20 @@ export default function PickingListDrawer({ isOpen, onClose, order }: PickingLis
           </button>
           <button
             onClick={handleDownload}
-            className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2 text-sm"
+            disabled={isDownloading}
+            className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4" />
-            Download PDF
+            {isDownloading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Download PDF
+              </>
+            )}
           </button>
           <button
             onClick={handleGenerateNewOrder}

@@ -41,6 +41,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Eye,
+  FileCheck,
+  DollarSign,
+  Truck,
+  ClipboardCheck,
 } from "lucide-react"
 import type { SalesOrderAdminItem, OrderStatus } from "@/lib/types/sales-order-admin"
 import { ALL_ORDER_STATUSES } from "@/lib/types/sales-order-admin"
@@ -49,6 +54,7 @@ import {
   updateAdminSalesOrderStatus,
   deleteAdminSalesOrder,
 } from "@/lib/services/admin-order-service"
+import AdminOrderApprovalDialog from "./components/admin-order-approval-dialog"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { PermissionGate, PermissionButton } from "@/components/PermissionGate"
@@ -65,6 +71,7 @@ export default function AdminSalesOrdersPage() {
 
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<SalesOrderAdminItem | null>(null)
   const [newStatus, setNewStatus] = useState<OrderStatus | "">("")
 
@@ -116,6 +123,11 @@ export default function AdminSalesOrdersPage() {
   const handleOpenDeleteDialog = (order: SalesOrderAdminItem) => {
     setSelectedOrder(order)
     setIsDeleteDialogOpen(true)
+  }
+
+  const handleOpenApprovalDialog = (order: SalesOrderAdminItem) => {
+    setSelectedOrder(order)
+    setIsApprovalDialogOpen(true)
   }
 
   const handleStatusUpdate = async () => {
@@ -235,6 +247,64 @@ export default function AdminSalesOrdersPage() {
     })
   }
 
+  // Get quick actions based on order status
+  const getQuickActions = (order: SalesOrderAdminItem) => {
+    const actions = [];
+    
+    switch (order.currentStatus) {
+      case 'ordered':
+        actions.push({
+          icon: DollarSign,
+          label: 'Process Deposit',
+          action: 'deposit-payment',
+          color: 'text-green-600 hover:text-green-700'
+        });
+        break;
+      case 'deposit_received':
+        actions.push({
+          icon: DollarSign,
+          label: 'Process Final Payment',
+          action: 'final-payment',
+          color: 'text-blue-600 hover:text-blue-700'
+        });
+        break;
+      case 'final_payment_received':
+        actions.push({
+          icon: ClipboardCheck,
+          label: 'Complete PD',
+          action: 'pd-complete',
+          color: 'text-purple-600 hover:text-purple-700'
+        });
+        break;
+      case 'pre_delivery_inspection':
+        actions.push({
+          icon: Truck,
+          label: 'Mark Shipped',
+          action: 'ship',
+          color: 'text-orange-600 hover:text-orange-700'
+        });
+        break;
+      case 'shipped':
+        actions.push({
+          icon: FileCheck,
+          label: 'Mark Delivered',
+          action: 'deliver',
+          color: 'text-teal-600 hover:text-teal-700'
+        });
+        break;
+      default:
+        break;
+    }
+    
+    return actions;
+  };
+
+  const handleQuickAction = async (order: SalesOrderAdminItem, actionType: string) => {
+    // For now, just open the approval dialog
+    setSelectedOrder(order);
+    setIsApprovalDialogOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="container mx-auto py-8 px-4 md:px-6">
@@ -321,15 +391,18 @@ export default function AdminSalesOrdersPage() {
                       <TableHead className="w-[220px] px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 tracking-wider">
                         Last Operated By
                       </TableHead>
+                      <TableHead className="text-center w-[200px] px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 tracking-wider">
+                        Quick Actions
+                      </TableHead>
                       <TableHead className="text-right w-[100px] px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 tracking-wider">
-                        Actions
+                        Menu
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {paginatedOrders.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="h-40 text-center text-slate-500 dark:text-slate-400 text-lg">
+                        <TableCell colSpan={9} className="h-40 text-center text-slate-500 dark:text-slate-400 text-lg">
                           No sales orders match your criteria.
                         </TableCell>
                       </TableRow>
@@ -386,6 +459,37 @@ export default function AdminSalesOrdersPage() {
                                 {formatDate(order.lastModifiedDate)}
                               </div>
                             </TableCell>
+                            <TableCell className="px-4 py-3 text-center">
+                              <div className="flex justify-center gap-1">
+                                {/* View Order Button */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.location.href = `/sales/orders/${order.id}`}
+                                  className="h-8 px-2 hover:bg-blue-50 border-blue-200 text-blue-600 hover:text-blue-700"
+                                  title="View Order Details"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                
+                                {/* Quick Action Buttons */}
+                                {getQuickActions(order).map((action, index) => {
+                                  const IconComp = action.icon;
+                                  return (
+                                    <Button
+                                      key={index}
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleQuickAction(order, action.action)}
+                                      className={`h-8 px-2 ${action.color} border-current hover:bg-current hover:bg-opacity-10`}
+                                      title={action.label}
+                                    >
+                                      <IconComp className="h-3.5 w-3.5" />
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-right px-4 py-3">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -411,6 +515,15 @@ export default function AdminSalesOrdersPage() {
                                     >
                                       <Edit className="mr-2 h-4 w-4" />
                                       Change Status
+                                    </DropdownMenuItem>
+                                  </PermissionGate>
+                                  <PermissionGate permission="sales.approve">
+                                    <DropdownMenuItem
+                                      onClick={() => handleOpenApprovalDialog(order)}
+                                      className="cursor-pointer dark:text-slate-200 dark:focus:bg-slate-600"
+                                    >
+                                      <CheckCircle className="mr-2 h-4 w-4" />
+                                      Approval Actions
                                     </DropdownMenuItem>
                                   </PermissionGate>
                                   <DropdownMenuItem
@@ -556,6 +669,25 @@ export default function AdminSalesOrdersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Order Approval Dialog */}
+        <AdminOrderApprovalDialog
+          open={isApprovalDialogOpen}
+          onClose={() => setIsApprovalDialogOpen(false)}
+          order={selectedOrder}
+          onOrderUpdate={() => {
+            // Refresh the orders list
+            const fetchOrders = async () => {
+              try {
+                const data = await getAdminSalesOrders()
+                setOrders(data)
+              } catch (error) {
+                console.error('Failed to refresh orders:', error)
+              }
+            }
+            fetchOrders()
+          }}
+        />
       </div>
     </div>
   )

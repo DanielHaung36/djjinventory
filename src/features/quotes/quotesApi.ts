@@ -205,59 +205,65 @@ export const quotesApi = createApi({
     // 单条获取，映射字段到 UI 结构
     getQuoteById: builder.query<Quote, string>({
       query: (id) => `quotes/${id}`,
-      transformResponse: (res: any) => ({
-        id: res.id,
-        quoteNumber: res.quoteNumber,
-        customer: {
-          id: res.Customer.id,
-          name: res.Customer.name,
-          abn: res.Customer.abn,
-          contact: res.Customer.contact,
-          phone: res.Customer.phone,
-          email: res.Customer.email,
-          address: res.Customer.address,
-        },
-        // 添加顶级字段映射以兼容详情页面
-        phone: res.Customer.phone,
-        email: res.Customer.email,
-        customerABN: res.Customer.abn,
-        billingAddress: res.Customer.billing_address_line1 ? {
-          line1: res.Customer.billing_address_line1,
-          line2: res.Customer.billing_address_line2,
-          city: res.Customer.billing_city,
-          state: res.Customer.billing_state,
-          postcode: res.Customer.billing_postcode,
-          country: res.Customer.billing_country,
-        } : null,
-        deliveryAddress: res.Customer.delivery_address_line1 ? {
-          line1: res.Customer.delivery_address_line1,
-          line2: res.Customer.delivery_address_line2,
-          city: res.Customer.delivery_city,
-          state: res.Customer.delivery_state,
-          postcode: res.Customer.delivery_postcode,
-          country: res.Customer.delivery_country,
-        } : null,
-        store: {
-          id: res.store.id,
-          name: res.store.name,
-        },
-        company: {
-          id: res.company.id,
-          name: res.company.name,
-          code: res.company.code,
-          abn: res.company.abn,
-          phone: res.company.phone,
-          email: res.company.email,
-          website: res.company.website,
-          address: res.company.address,
-          bankDetails: {
-            bankName: res.company.bank_name,
-            bsb: res.company.bsb,
-            accountNumber: res.company.account_number,
+      transformResponse: (res: any) => {
+        // 安全地获取客户信息（根据后端JSON标签，都是小写）
+        const customer = res.customer || {};
+        const store = res.store || {};
+        const company = res.company || {};
+        
+        return {
+          id: res.id,
+          quoteNumber: res.quoteNumber,
+          customer: {
+            id: customer.id,
+            name: customer.name || '',
+            abn: customer.abn,
+            contact: customer.contact || '',
+            phone: customer.phone || '',
+            email: customer.email || '',
+            address: customer.address || '',
           },
-        },
-        salesRepUser: res.salesRepUser,
-        items: res.items.map((item: any) => ({
+          // 添加顶级字段映射以兼容详情页面
+          phone: customer.phone || '',
+          email: customer.email || '',
+          customerABN: customer.abn,
+          billingAddress: customer.billing_address_line1 ? {
+            line1: customer.billing_address_line1,
+            line2: customer.billing_address_line2,
+            city: customer.billing_city,
+            state: customer.billing_state,
+            postcode: customer.billing_postcode,
+            country: customer.billing_country,
+          } : null,
+          deliveryAddress: customer.delivery_address_line1 ? {
+            line1: customer.delivery_address_line1,
+            line2: customer.delivery_address_line2,
+            city: customer.delivery_city,
+            state: customer.delivery_state,
+            postcode: customer.delivery_postcode,
+            country: customer.delivery_country,
+          } : null,
+          store: store.id ? {
+            id: store.id,
+            name: store.name || '',
+          } : null,
+          company: company.id ? {
+            id: company.id,
+            name: company.name || '',
+            code: company.code,
+            abn: company.abn,
+            phone: company.phone,
+            email: company.email,
+            website: company.website,
+            address: company.address,
+            bankDetails: {
+              bankName: company.bank_name,
+              bsb: company.bsb,
+              accountNumber: company.account_number,
+            },
+          } : null,
+          salesRepUser: res.salesRepUser,
+        items: (res.items || []).map((item: any) => ({
           id: item.id,
           quoteId: item.quoteId,
           productId: item.productId,
@@ -300,24 +306,24 @@ export const quotesApi = createApi({
         })),
         quoteDate: res.quoteDate,
         amounts: {
-          subTotal: res.subTotal,
-          gstTotal: res.gstTotal,
-          total: res.totalAmount,
-          currency: res.currency,
+          subTotal: res.subTotal || 0,
+          gstTotal: res.gstTotal || 0,
+          total: res.totalAmount || 0,
+          currency: res.currency || 'AUD',
         },
-        depositAmount: res.depositAmount,
+        depositAmount: res.depositAmount || 0,
         remarks: [
           {
-            general: res.remarks[0]?.general || '',
-            warrantyAndSpecial: res.remarks[0]?.warrantyAndSpecial || '',
+            general: (res.remarks && res.remarks[0]?.general) || '',
+            warrantyAndSpecial: (res.remarks && res.remarks[0]?.warrantyAndSpecial) || '',
           },
         ],
-        warrantyNotes: res.warrantyNotes,
-        status: res.status,
+        warrantyNotes: res.warrantyNotes || '',
+        status: res.status || 'pending',
         createdAt: res.createdAt,
         updatedAt: res.updatedAt,
         // 添加附件信息映射
-        attachments: res.attachments ? res.attachments.map((attachment: any) => ({
+        attachments: (res.attachments || []).map((attachment: any) => ({
           id: attachment.id,
           fileName: attachment.fileName,
           fileType: attachment.fileType,
@@ -326,8 +332,9 @@ export const quotesApi = createApi({
           uploadedAt: attachment.uploadedAt,
           refType: attachment.refType,
           refId: attachment.refId,
-        })) : [],
-      }),
+        })),
+      };
+      },
       providesTags: (_result, _error, id) => [{ type: 'Quote' as const, id }],
     }),
 

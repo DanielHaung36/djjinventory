@@ -1054,6 +1054,8 @@ export default function QuoteSubmissionForm() {
       // 处理项目复制
       if (originalQuote.items && originalQuote.items.length > 0) {
         // 准备新的项目数据
+        console.log(originalQuote);
+        
         const newItems = originalQuote.items.map((item) => ({
           productId: item.productId,
           description: item.description,
@@ -1148,9 +1150,11 @@ export default function QuoteSubmissionForm() {
 
   const handleProductSelect = (index: number, product: any | null) => {
     if (product) {
+      console.log(product);
+      
       form.setValue(`items.${index}.productId`, product.id)
       form.setValue(`items.${index}.description`, product.name_cn || product.name_en || product.djj_code)
-      form.setValue(`items.${index}.unitPrice`, product.price || 0)
+      form.setValue(`items.${index}.unitPrice`, product.price || product.rrp_price|| 0)
       setSelectedProductIds((prev) => ({ ...prev, [index]: product.id }))
       form.clearErrors(`items.${index}.description`)
     } else {

@@ -45,10 +45,13 @@ import FAQPage from "../features/faq/page";
 import KnowledgeBasePage from "../features/knowledge/page";
 import UserPermissionEditor from "../features/setting/Rbac";
 import Team from "../features/user";
+import TeamPage from "../features/user/TeamPage";
 import Form from "../features/user/components/Form";
+import EnhancedUserForm from "../features/user/EnhancedUserForm";
 import ScanInPage from '../features/inventory/scan-in/page.tsx';
 import ScanOutPage from '../features/inventory/scan-out/page.tsx';
 import MobileMenu from '../features/mobile/Mobile.tsx';
+import ActivityPage from '../features/activity/ActivityPage';
 
 export default function AppRoutes() {
   return (
@@ -121,9 +124,10 @@ export default function AppRoutes() {
             <Route path="products" element={<ProductManagement />} />
             <Route path="/products/:code" element={<ProductDetailPage />} />
             <Route path="/products/edit/:code" element={<ProductEditPage />} />
-            <Route path="/team" element={<Team />} />
-            <Route path="/team/create" element={<Form />} />
-            <Route path="/team/edit" element={<Form />} />
+            <Route path="/team" element={<TeamPage />} />
+            <Route path="/team/create" element={<EnhancedUserForm />} />
+            <Route path="/team/edit" element={<EnhancedUserForm />} />
+            <Route path="/team/legacy" element={<Team />} />
             <Route path="/faq" element={<FAQPage />}></Route>
             <Route path="/knowledge" element={<KnowledgeBasePage />}></Route>
             <Route
@@ -131,6 +135,9 @@ export default function AppRoutes() {
               element={<UserPermissionEditor />}
             ></Route>
           </Route>
+          
+          {/* 活动记录页面 */}
+          <Route path="/activity" element={<ActivityPage />} />
         </Route>
         {/* ====== 未匹配路由，跳到登录 ====== */}
         <Route path="*" element={<Navigate to="/login" replace />} />

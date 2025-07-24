@@ -54,7 +54,7 @@ export const dashboardApi = {
   // 获取最近活动
   async getRecentActivities(limit = 10): Promise<DashboardActivity[]> {
     const response = await api.get(`/dashboard/activities?limit=${limit}`)
-    return response.data
+    return response.data.data || response.data // 兼容两种格式
   },
 
   // 获取快速操作

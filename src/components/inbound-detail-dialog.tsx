@@ -423,8 +423,8 @@ export function InboundDetailDialog({
                             <Badge variant="outline">{item.category}</Badge>
                           </TableCell>
                           <TableCell className="text-center">{item.quantity || 0}</TableCell>
-                          <TableCell>¥{(item.unitPrice || 0).toFixed(2)}</TableCell>
-                          <TableCell className="font-medium">¥{(item.totalValue || 0).toFixed(2)}</TableCell>
+                          <TableCell>${(item.price || 0).toFixed(2)}</TableCell>
+                          <TableCell className="font-medium">${(item.totalValue || 0).toFixed(2)}</TableCell>
                           <TableCell className="text-center">{item.beforeStock || 0}</TableCell>
                           <TableCell className="text-center">{item.afterStock || 0}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">

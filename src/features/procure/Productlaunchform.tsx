@@ -37,6 +37,7 @@ interface ProductFormData {
 
   // Business Information
   expectedPrice: number
+  price: number
   currency: string
   estimatedDemand: number
   launchTimeline: string
@@ -78,6 +79,7 @@ const initialFormData: ProductFormData = {
   productDescription: "",
   targetMarket: "",
   expectedPrice: 0,
+  price: 0,
   currency: "AUD",
   estimatedDemand: 0,
   launchTimeline: "",

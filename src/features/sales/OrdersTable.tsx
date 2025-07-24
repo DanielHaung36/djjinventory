@@ -80,7 +80,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
     return orders.filter((order) => {
       const text = searchTerm.toLowerCase()
       const matchesSearch =
-        order.orderNumber.toLowerCase().includes(text) ||
+        (order.orderNumber || '').toLowerCase().includes(text) ||
         (order.customer?.name || '').toLowerCase().includes(text) ||
         (order.salesRepUser?.name || '').toLowerCase().includes(text)
 
@@ -117,7 +117,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
     ) {
       setSelectedOrders([])
     } else {
-      setSelectedOrders(paginatedOrders.map((o) => o.orderNumber))
+      setSelectedOrders(paginatedOrders.map((o) => o.orderNumber).filter(Boolean))
     }
   }
 
@@ -272,7 +272,11 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
             }}
           >
             <SelectItem value="all">All</SelectItem>
-            {[...new Set(orders.map((o) => o.salesRepUser?.name).filter(Boolean))].map((rep) => (
+            {[...new Set(orders.map((o) => {
+              console.log(o.salesRepUser?.username);
+              return o.salesRepUser?.username
+              
+            }).filter(Boolean))].map((rep) => (
               <SelectItem key={rep} value={rep}>
                 {rep}
               </SelectItem>
@@ -366,15 +370,15 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
             {paginatedOrders.length > 0 ? (
               paginatedOrders.map((order) => (
                 <TableRow
-                  key={order.orderNumber}
+                  key={order.orderNumber || order.id}
                   hover
                   sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
                 >
                   <TableCell padding="checkbox">
                     <Checkbox
-                      checked={selectedOrders.includes(order.orderNumber)}
+                      checked={selectedOrders.includes(order.orderNumber || '')}
                       onChange={() =>
-                        toggleOrderSelection(order.orderNumber)
+                        order.orderNumber && toggleOrderSelection(order.orderNumber)
                       }
                     />
                   </TableCell>
@@ -385,7 +389,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                         fontWeight="bold"
                         color="primary"
                       >
-                        {order.orderNumber}
+                        {order.orderNumber || 'N/A'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         Quote #{order.quoteId || 'N/A'}
@@ -426,14 +430,14 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                         fontWeight="bold"
                         color="success.main"
                       >
-                        ${order.totalAmount.toLocaleString()}
+                        ${(order.totalAmount || 0).toLocaleString()}
                       </Typography>
-                      {order.depositAmount > 0 && (
+                      {(order.depositAmount || 0) > 0 && (
                         <Typography
                           variant="caption"
                           color="text.secondary"
                         >
-                          Deposit: ${order.depositAmount.toLocaleString()}
+                          Deposit: ${(order.depositAmount || 0).toLocaleString()}
                         </Typography>
                       )}
                     </Box>
@@ -461,10 +465,10 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                           fontSize: 12,
                           bgcolor: "success.light",
                         }}>
-                        {getInitials(order.salesRepUser?.name || 'N/A')}
+                        {getInitials(order.salesRepUser?.username || 'N/A')}
                       </Avatar>
                       <Typography variant="body2">
-                        {order.salesRepUser?.name || 'Unknown'}
+                        {order.salesRepUser?.username || 'Unknown'}
                       </Typography>
                     </Box>
                   </TableCell>
@@ -479,7 +483,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                   <TableCell>
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <LocationOn fontSize="small" color="text.secondary" />
-                      <Typography variant="body2">{order.location || order.store?.address || 'N/A'}</Typography>
+                      <Typography variant="body2">{order.location || order.store?.name || 'N/A'}</Typography>
                     </Box>
                   </TableCell>
                   <TableCell align="right">

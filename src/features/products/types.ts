@@ -36,7 +36,7 @@ export interface SalesData {
 
 export interface Product {
   id: number
-  djj_code: string
+  djj_code: string        // 只读字段，由后端自动生成
   status: ProductStatus
   application_status: ApplicationStatus;
   supplier: string
@@ -50,7 +50,7 @@ export interface Product {
   standards: string
   unit: string
   currency: string
-  rrp_price: number
+  price: number           // 统一使用price
   standard_warranty: string
   remarks: string
   weight_kg: number
@@ -82,4 +82,37 @@ export interface Product {
   version: number
   created_at: string
   updated_at: string
+}
+
+// 产品表单数据类型 - 不包含只读字段和自动生成字段
+export interface ProductFormData {
+  // djj_code 由后端自动生成，表单中不包含
+  status: ProductStatus
+  application_status: ApplicationStatus
+  supplier: string
+  manufacturer_code: string
+  category: "Machine" | "Parts" | "Tools" | "Accessories"
+  subcategory: string
+  tertiary_category: string
+  name_cn: string
+  name_en: string
+  specs: string
+  standards: string
+  unit: string
+  currency: string
+  price: number
+  standard_warranty: string
+  remarks: string
+  weight_kg: number
+  lift_capacity_kg?: number
+  lift_height_mm?: number
+  power_source?: string
+  other_specs?: unknown
+  warranty: string
+  marketing_info: string
+  training_docs: string
+  product_url: string
+  technical_specs?: unknown
+  other_info?: unknown
+  images: ProductImage[]
 }

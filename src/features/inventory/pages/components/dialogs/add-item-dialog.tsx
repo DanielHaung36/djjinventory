@@ -244,7 +244,7 @@ export function AddItemDialog({ open, onClose, onAdd, mode = "inbound" }: AddIte
                               {option.name_cn || '未知产品'}
                             </div>
                             <div style={{ fontSize: '12px', color: '#666' }}>
-                              {option.djj_code} | {option.category} | ¥{option.rrp_price}
+                              {option.djj_code} | {option.category} | ¥{option.price}
                             </div>
                           </div>
                         </li>

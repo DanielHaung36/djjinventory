@@ -5,6 +5,7 @@ import {
     Person as PersonIcon,
     CalendarToday as CalendarIcon,
     AttachMoney as DollarIcon,
+    Receipt as ReceiptIcon,
 } from "@mui/icons-material"
 import React from "react";
 import type { SalesOrder } from "../types/sales-order";
@@ -15,6 +16,36 @@ interface OrderSummaryProps {
 }
 
 const OrderSummary = ({ order }: OrderSummaryProps) => {
+    // 获取状态颜色
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'draft':
+                return '#9CA3AF'; // gray
+            case 'ordered':
+                return '#3B82F6'; // blue
+            case 'deposit_received':
+                return '#F59E0B'; // amber
+            case 'final_payment_received':
+                return '#8B5CF6'; // purple
+            case 'pre_delivery_inspection':
+                return '#06B6D4'; // cyan
+            case 'shipped':
+                return '#10B981'; // emerald
+            case 'delivered':
+                return '#059669'; // green
+            case 'order_closed':
+                return '#6B7280'; // gray
+            case 'cancelled':
+                return '#EF4444'; // red
+            default:
+                return '#9CA3AF'; // gray
+        }
+    };
+
+    const formatStatus = (status: string) => {
+        return status ? status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Draft';
+    };
+
     return (
         <Grid item >
             <Card
@@ -35,9 +66,9 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
                                 Order Summary
                             </Typography>
                             <Chip
-                                label="Active"
+                                label={formatStatus(order.status || 'draft')}
                                 sx={{
-                                    bgcolor: "rgba(255,255,255,0.2)",
+                                    bgcolor: getStatusColor(order.status || 'draft'),
                                     color: "white",
                                     fontWeight: "bold",
                                 }}
@@ -49,33 +80,33 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
                     <Grid container spacing={4}>
                         {[
                             {
+                                icon: <ReceiptIcon />,
+                                label: "Order Number",
+                                value: order.orderNumber || 'Not assigned',
+                                color: "#6366F1",
+                            },
+                            {
                                 icon: <PersonIcon />,
                                 label: "Customer",
                                 value: order.customer?.name || `Customer ID: ${order.customerId}`,
                                 color: "#8B5CF6",
                             },
                             {
-                                icon: <PackageIcon />,
-                                label: "Machine Model",
-                                value: order.machineModel || "LM930 Wheel Loader",
-                                color: "#06B6D4",
-                            },
-                            {
                                 icon: <CalendarIcon />,
                                 label: "Order Date",
-                                value: order.orderDate || "2025-05-02",
+                                value: order.orderDate ? new Date(order.orderDate).toLocaleDateString() : new Date().toLocaleDateString(),
                                 color: "#F59E0B",
                             },
                             {
                                 icon: <ClockIcon />,
-                                label: "ETA",
-                                value: order.eta || "2025-05-15",
-                                color: "#EF4444",
+                                label: "Status",
+                                value: formatStatus(order.status || 'draft'),
+                                color: getStatusColor(order.status || 'draft'),
                             },
                             {
                                 icon: <DollarIcon />,
-                                label: "Total",
-                                value: `$${order.total?.toLocaleString() || "45,000"}`,
+                                label: "Total Amount",
+                                value: `${order.currency || 'AUD'} $${order.totalAmount?.toLocaleString() || '0'}`,
                                 color: "#10B981",
                                 isPrice: true,
                             },

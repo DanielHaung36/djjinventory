@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { useGetQuoteByIdQuery, useUpdateQuoteMutation } from '../../quotesApi'
+import { useGetProductsQuery } from '@/features/products/productsApi'
 import type { Quote, QuoteItem } from "@/lib/types/quote"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Plus, Trash2, User, Building, Package, Calendar, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Search } from "lucide-react"
 
 const formSchema = z.object({
   quoteNumber: z.string().min(1, "Quote number is required"),
@@ -34,6 +36,171 @@ const formSchema = z.object({
   warrantyRemarks: z.string().optional(),
 })
 
+// 产品选择组件
+function ProductSelector({
+  value,
+  onValueChange,
+  disabled,
+  products = [],
+  loading = false,
+}: {
+  value?: number
+  onValueChange: (product: any | null) => void
+  disabled?: boolean
+  products?: any[]
+  loading?: boolean
+}) {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
+
+  const filteredProducts = React.useMemo(() => {
+    if (!searchTerm) return products
+    return products.filter((product) => 
+      product.name_cn?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.name_en?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.djj_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [searchTerm, products])
+
+  const selectedProduct = products.find((product) => product.id === value)
+
+  React.useEffect(() => {
+    if (selectedProduct) {
+      setSearchTerm(selectedProduct.name_cn || selectedProduct.name_en || selectedProduct.djj_code || '')
+    } else {
+      setSearchTerm("")
+    }
+  }, [selectedProduct])
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
+    }).format(amount)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder={loading ? "Loading products..." : "Search products or enter custom description..."}
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          className="pl-10 h-9"
+          disabled={disabled || loading}
+          title={selectedProduct ? `Selected: ${selectedProduct.name_cn || selectedProduct.name_en} (${selectedProduct.djj_code})` : ''}
+        />
+        {loading && (
+          <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="relative">
+          <div className="absolute top-0 left-0 right-0 z-50 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="p-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start text-left h-auto p-2"
+                onClick={() => {
+                  onValueChange(null)
+                  setSearchTerm("")
+                  setIsOpen(false)
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                <div>
+                  <div className="font-medium">Custom Description</div>
+                  <div className="text-sm text-gray-500">Enter your own product description</div>
+                </div>
+              </Button>
+            </div>
+            <div className="border-t">
+              {loading ? (
+                <div className="p-4 text-center text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                  Loading products...
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">No products found</div>
+              ) : (
+                filteredProducts.map((product) => (
+                  <Button
+                    key={product.id}
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start text-left h-auto p-3 border-b last:border-b-0 hover:bg-gray-50"
+                    onClick={() => {
+                      onValueChange(product)
+                      setSearchTerm(product.name_cn || product.name_en || product.djj_code || '')
+                      setIsOpen(false)
+                    }}
+                  >
+                    <div className="w-full space-y-1">
+                      <div className="font-medium text-gray-900">
+                        {product.name_cn || product.name_en || product.name || product.djj_code || 'Unnamed Product'}
+                      </div>
+                      <div className="text-sm text-gray-600 space-y-0.5">
+                        {product.djj_code && (
+                          <div>Code: <span className="font-mono">{product.djj_code}</span></div>
+                        )}
+                        {product.manufacturer && (
+                          <div>Manufacturer: {product.manufacturer}</div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          {product.category && (
+                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">
+                              {product.category}
+                            </span>
+                          )}
+                          {product.price && (
+                            <span className="font-medium text-green-600">
+                              {formatCurrency(product.price)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedProduct && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+          <div className="font-medium text-green-900 text-base">
+            {selectedProduct.name_cn || selectedProduct.name_en || selectedProduct.name || 'Product Name Not Available'}
+          </div>
+          <div className="text-sm text-green-700 mt-1 space-y-1">
+            {selectedProduct.djj_code && (
+              <div><span className="font-medium">Code:</span> {selectedProduct.djj_code}</div>
+            )}
+            {selectedProduct.manufacturer && (
+              <div><span className="font-medium">Manufacturer:</span> {selectedProduct.manufacturer}</div>
+            )}
+            {selectedProduct.price && (
+              <div><span className="font-medium">Price:</span> {formatCurrency(selectedProduct.price)}</div>
+            )}
+            {selectedProduct.category && (
+              <div><span className="font-medium">Category:</span> {selectedProduct.category}</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function EditQuotePage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -48,6 +215,13 @@ export default function EditQuotePage() {
   
   // 使用RTK Query更新quote
   const [updateQuoteMutation, { isLoading: submitting }] = useUpdateQuoteMutation()
+  
+  // 获取产品数据
+  const { data: productsResponse, isLoading: productsLoading } = useGetProductsQuery({
+    offset: 0,
+    limit: 1000,
+  })
+  const products = productsResponse?.products || []
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -108,6 +282,7 @@ export default function EditQuotePage() {
     setItems([
       ...items,
       {
+        productId: undefined,
         description: "",
         quantity: 1,
         unit: "unit",
@@ -137,6 +312,33 @@ export default function EditQuotePage() {
 
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index))
+  }
+
+  const handleProductSelect = (index: number, product: any | null) => {
+    const updatedItems = [...items]
+    
+    if (product) {
+      updatedItems[index] = {
+        ...updatedItems[index],
+        productId: product.id,
+        description: product.name_cn || product.name_en || product.djj_code || '',
+        unitPrice: product.price || updatedItems[index].unitPrice,
+      }
+      
+      // Recalculate total price
+      const quantity = updatedItems[index].quantity
+      const unitPrice = product.price || updatedItems[index].unitPrice
+      const discount = updatedItems[index].discount || 0
+      updatedItems[index].totalPrice = quantity * unitPrice - discount
+    } else {
+      // Custom description - clear productId
+      updatedItems[index] = {
+        ...updatedItems[index],
+        productId: undefined,
+      }
+    }
+    
+    setItems(updatedItems)
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -533,6 +735,39 @@ export default function EditQuotePage() {
                           </div>
 
                           <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              <div className="md:col-span-2">
+                                <label className="block text-sm font-medium mb-1">Product Selection</label>
+                                <ProductSelector
+                                  value={item.productId}
+                                  onValueChange={(product) => handleProductSelect(index, product)}
+                                  products={products}
+                                  loading={productsLoading}
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium mb-1">Product Nature</label>
+                                <Select
+                                  value={item.goodsNature ?? "contract"}
+                                  onValueChange={(value) =>
+                                    updateItem(index, "goodsNature", value)
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select nature" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="contract">Contract</SelectItem>
+                                    <SelectItem value="warranty">Warranty</SelectItem>
+                                    <SelectItem value="gift">Gift</SelectItem>
+                                    <SelectItem value="selfPurchase">Self Purchase</SelectItem>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            
                             <div>
                               <label className="block text-sm font-medium mb-1">Description*</label>
                               <Input
@@ -565,27 +800,6 @@ export default function EditQuotePage() {
                                     <SelectItem value="package">Package</SelectItem>
                                     <SelectItem value="hour">Hour</SelectItem>
                                     <SelectItem value="day">Day</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div>
-                                <label className="block text-sm font-medium mb-1">Product Nature</label>
-                                <Select
-                                  value={item.goodsNature ?? "contract"}
-                                  onValueChange={(value) =>
-                                    updateItem(index, "goodsNature", value)
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select nature" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="contract">Contract</SelectItem>
-                                    <SelectItem value="warranty">Warranty</SelectItem>
-                                    <SelectItem value="gift">Gift</SelectItem>
-                                    <SelectItem value="selfPurchase">Self Purchase</SelectItem>
-                                    <SelectItem value="pending">Pending</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>

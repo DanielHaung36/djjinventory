@@ -46,7 +46,7 @@ const StatsCards: React.FC<StatsCardsProps> = ({
       color: "#7b1fa2",
       bgColor: "#f3e5f5",
       icon: Inventory,
-      filter: "pre-delivery-inspection",
+      filter: "pre_delivery_inspection",
       description: "Pre-delivery inspection",
     },
     {

@@ -1,76 +1,84 @@
 import type { SalesOrderAdminItem, OrderStatus } from "@/lib/types/sales-order-admin"
-import { ALL_ORDER_STATUSES } from "@/lib/types/sales-order-admin"
+import { store } from "../../app/store"
+import { salesApi } from "../../features/sales/salesApi"
 
-const generateAdminMockOrders = (): SalesOrderAdminItem[] => {
-  const customers = [
-    "DW TILES QLD",
-    "Geoff Harcourt",
-    "Sam Construction",
-    "BuildCorp Australia",
-    "Mining Solutions Ltd",
-    "Pacific Infrastructure",
-    "Urban Development Co",
-  ]
-  const creators = ["AdminMaster", "LiuEcho", "Jack Yao", "Monica Chen", "SystemProcess"]
-  const salesReps = ["Monica Simons", "Jack Wilson", "Sarah Chen", "David Kim"]
-
-  const orders: SalesOrderAdminItem[] = []
-  for (let i = 1; i <= 25; i++) {
-    const baseDate = new Date("2025-05-01")
-    const orderDate = new Date(baseDate.getTime() + i * 24 * 60 * 60 * 1000)
-    const total = 10000 + (i % 10) * 2500 + Math.floor(Math.random() * 5000)
-
-    orders.push({
-      id: `admin-order-${i}`,
-      orderNumber: `AO-25${String(i).padStart(4, "0")}`,
-      quoteNumber: `Q-${creators[i % creators.length].substring(0, 2).toUpperCase()}250${i % 100}`,
-      customer: customers[i % customers.length],
-      orderDate: orderDate.toISOString().split("T")[0],
-      totalAmount: total,
-      currency: "AUD",
-      currentStatus: ALL_ORDER_STATUSES[i % ALL_ORDER_STATUSES.length],
-      salesRep: salesReps[i % salesReps.length],
-      createdBy: creators[i % creators.length],
-      lastModifiedBy: creators[i % creators.length], // Initially, same as createdBy or a default admin
-      lastModifiedDate: orderDate.toISOString(), // Initially, same as orderDate
-    })
+// Transform backend order data to admin format
+const transformOrderToAdminFormat = (order: any): SalesOrderAdminItem => {
+  return {
+    id: order.id?.toString() || order.orderNumber,
+    orderNumber: order.orderNumber,
+    quoteNumber: order.quoteNumber || '',
+    customer: order.customer || 'Unknown Customer',
+    orderDate: order.orderDate || order.createdAt,
+    totalAmount: order.total || order.totalAmount || 0,
+    currency: order.currency || 'USD',
+    currentStatus: order.status as OrderStatus,
+    salesRep: order.salesRep || order.createdBy,
+    createdBy: order.createdBy || 'System',
+    lastModifiedBy: order.lastModifiedBy || order.createdBy,
+    lastModifiedDate: order.updatedAt || order.createdAt,
   }
-  return orders
 }
 
-let mockAdminOrders: SalesOrderAdminItem[] = generateAdminMockOrders()
-
 export const getAdminOrders = async (): Promise<SalesOrderAdminItem[]> => {
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  return JSON.parse(JSON.stringify(mockAdminOrders))
+  try {
+    const result = await store.dispatch(
+      salesApi.endpoints.getOrders.initiate({ limit: 100 })
+    ).unwrap()
+    
+    return result.data.map(transformOrderToAdminFormat)
+  } catch (error) {
+    console.error('Failed to fetch orders for admin:', error)
+    throw new Error('Failed to load orders')
+  }
 }
 
 export const updateAdminOrderStatus = async (
   orderId: string,
   newStatus: OrderStatus,
-  operatorName: string, // Added: Name of the admin performing the action
+  operatorName: string,
 ): Promise<SalesOrderAdminItem | null> => {
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  const orderIndex = mockAdminOrders.findIndex((order) => order.id === orderId)
-  if (orderIndex !== -1) {
-    mockAdminOrders[orderIndex].currentStatus = newStatus
-    mockAdminOrders[orderIndex].lastModifiedBy = operatorName
-    mockAdminOrders[orderIndex].lastModifiedDate = new Date().toISOString()
-    return JSON.parse(JSON.stringify(mockAdminOrders[orderIndex]))
+  try {
+    // Convert orderId to number if it's a string
+    const numericOrderId = parseInt(orderId.replace(/\D/g, '')) || parseInt(orderId)
+    
+    await store.dispatch(
+      salesApi.endpoints.updateOrderStatus.initiate({
+        id: numericOrderId,
+        status: newStatus as any
+      })
+    ).unwrap()
+    
+    // Fetch updated order
+    const updatedOrder = await store.dispatch(
+      salesApi.endpoints.getOrderById.initiate(numericOrderId)
+    ).unwrap()
+    
+    return transformOrderToAdminFormat(updatedOrder.data)
+  } catch (error) {
+    console.error('Failed to update order status:', error)
+    throw new Error('Failed to update order status')
   }
-  return null
 }
 
 export const deleteAdminOrder = async (orderId: string, operatorName: string): Promise<boolean> => {
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  const initialLength = mockAdminOrders.length
-  const orderToDelete = mockAdminOrders.find((order) => order.id === orderId)
-  mockAdminOrders = mockAdminOrders.filter((order) => order.id !== orderId)
-  if (mockAdminOrders.length < initialLength && orderToDelete) {
-    console.log(`Order ${orderToDelete.orderNumber} deleted by ${operatorName} on ${new Date().toISOString()}`)
+  try {
+    // Convert orderId to number if it's a string
+    const numericOrderId = parseInt(orderId.replace(/\D/g, '')) || parseInt(orderId)
+    
+    // Call cancel order instead of delete since orders shouldn't be deleted
+    await store.dispatch(
+      salesApi.endpoints.cancelOrder.initiate({
+        id: numericOrderId,
+        reason: `Cancelled by admin: ${operatorName}`
+      })
+    ).unwrap()
+    
     return true
+  } catch (error) {
+    console.error('Failed to cancel order:', error)
+    throw new Error('Failed to cancel order')
   }
-  return false
 }
 
 // --- Aliases so the admin UI can use friendlier names ---

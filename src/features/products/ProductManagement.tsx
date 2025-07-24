@@ -16,16 +16,7 @@ import {
   ImageIcon,
   Loader2,
 } from "lucide-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -48,6 +39,7 @@ import {
 } from "./productsApi"
 import ProductForm from "./product-form"
 import { getStatusBadge } from "../../utils/getStatusBadge"
+import { useProductPermissions } from "./hooks/useProductPermissions"
 import { fa } from "zod/v4/locales"
 const ITEMS_PER_PAGE = 20  // 每页显示数量
 
@@ -57,6 +49,7 @@ export default function ProductManagement() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const permissions = useProductPermissions()
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -70,7 +63,7 @@ export default function ProductManagement() {
   // RTK Query hooks - 使用后端搜索和过滤
   const offset = (currentPage - 1) * ITEMS_PER_PAGE
   const limit = ITEMS_PER_PAGE
-  const [isDeleted,setDelete]=useState(false)
+  const [deletingProductId, setDeletingProductId] = useState<number | null>(null)
   
   // 传递搜索参数到后端API
   const { data, isLoading } = useGetProductsQuery({ 
@@ -130,23 +123,40 @@ export default function ProductManagement() {
     return <Badge className={colors[category]}>{category}</Badge>
   }
 
-  const handleDelete = async (id: number) => {
-       setDelete(true)
+  const handleConfirmDelete = async (id: number, productName: string) => {
+    setDeletingProductId(id)
     
-      try {
-        await deleteProduct(id).unwrap()
-        toast({
-          title: "Product Deleted",
-          description: "Product has been successfully deleted.",
-        })
-      } catch (error: any) {
-        toast({
-          title: "Delete Failed",
-          description: error.data?.message || "Failed to delete product.",
-          variant: "destructive",
-        })
+    try {
+      await deleteProduct(id).unwrap()
+      toast({
+        title: "Product Deleted",
+        description: `Product "${productName}" has been successfully deleted.`,
+      })
+    } catch (error: any) {
+      // 显示后端返回的友好英文错误信息
+      console.log("Delete error:", error) // 调试用
+      
+      let errorMessage = "Failed to delete product. Please try again later."
+      
+      // 根据后端返回格式获取错误信息
+      if (error.data?.error) {
+        errorMessage = error.data.error  // 后端返回 {"error": "message"}
+      } else if (error.data?.message) {
+        errorMessage = error.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      } else if (typeof error.data === 'string') {
+        errorMessage = error.data
       }
-      setDelete(false)
+      
+      toast({
+        title: "Cannot Delete Product",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 8000, // 显示更长时间，让用户看清楚详细说明
+      })
+    }
+    setDeletingProductId(null)
   }
 
   const handleCreateProduct = async (productData: Omit<Product, "id" | "version" | "created_at" | "updated_at">) => {
@@ -223,7 +233,7 @@ export default function ProductManagement() {
               <CardTitle className="text-sm font-medium text-slate-700">Monthly Sales</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-800">{product.monthly_sales}</div>
+              <div className="text-2xl font-bold text-slate-800">{product.monthly_sales || 0}</div>
               <p className="text-xs text-slate-600">units/month</p>
             </CardContent>
           </Card>
@@ -232,7 +242,7 @@ export default function ProductManagement() {
               <CardTitle className="text-sm font-medium text-gray-700">Total Sales</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-800">{product.total_sales}</div>
+              <div className="text-2xl font-bold text-gray-800">{product.total_sales || 0}</div>
               <p className="text-xs text-gray-600">units sold</p>
             </CardContent>
           </Card>
@@ -250,7 +260,7 @@ export default function ProductManagement() {
               <CardTitle className="text-sm font-medium text-neutral-700">Price</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-neutral-800">${product.rrp_price.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-neutral-800">${(product.price || 0).toLocaleString()}</div>
               <p className="text-xs text-neutral-600">{product.currency}</p>
             </CardContent>
           </Card>
@@ -355,18 +365,18 @@ export default function ProductManagement() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="text-center p-6 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-3xl font-bold text-slate-700">{product.total_sales}</div>
+                    <div className="text-3xl font-bold text-slate-700">{product.total_sales || 0}</div>
                     <div className="text-sm text-slate-600 mt-1">Total Sales</div>
                   </div>
                   <div className="text-center p-6 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-3xl font-bold text-gray-700">
-                      ${product.sales_data?.reduce((sum, data) => sum + data.revenue, 0).toLocaleString()}
+                      ${(product.sales_data?.reduce((sum, data) => sum + data.revenue, 0) || 0).toLocaleString()}
                     </div>
                     <div className="text-sm text-gray-600 mt-1">Total Revenue</div>
                   </div>
                   <div className="text-center p-6 bg-stone-50 rounded-lg border border-stone-200">
                     <div className="text-3xl font-bold text-stone-700">
-                      ${product.sales_data?.reduce((sum, data) => sum + data.profit, 0).toLocaleString()}
+                      ${(product.sales_data?.reduce((sum, data) => sum + data.profit, 0) || 0).toLocaleString()}
                     </div>
                     <div className="text-sm text-stone-600 mt-1">Total Profit</div>
                   </div>
@@ -936,11 +946,11 @@ export default function ProductManagement() {
                     <TableCell>{getCategoryBadge(product.category)}</TableCell>
                     <TableCell className="text-sm">{product.supplier}</TableCell>
                     <TableCell>{getStatusBadge(product.status)}</TableCell>
-                    <TableCell className="font-medium">${product.rrp_price.toLocaleString()}</TableCell>
+                    <TableCell className="font-medium">${(product.price || 0).toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <div className="font-medium">{product.monthly_sales}/mo</div>
-                        <div className="text-muted-foreground text-xs">{product.total_sales} total</div>
+                        <div className="font-medium">{product.monthly_sales || 0}/mo</div>
+                        <div className="text-muted-foreground text-xs">{product.total_sales || 0} total</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -970,14 +980,23 @@ export default function ProductManagement() {
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(product.id)}
-                            className="text-red-600"
-                            disabled={isDeleting}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
+                          {permissions.canDeleteProduct && (
+                            <DeleteConfirmDialog
+                              itemName={product.name_cn || product.djj_code}
+                              itemType="product"
+                              onConfirm={() => handleConfirmDelete(product.id, product.name_cn || product.djj_code)}
+                              isDeleting={deletingProductId === product.id}
+                              description="Deleting this product will permanently remove all product information, inventory records, and historical data."
+                            >
+                              <DropdownMenuItem
+                                className="text-red-600 cursor-pointer"
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DeleteConfirmDialog>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -1064,23 +1083,6 @@ export default function ProductManagement() {
         </DialogContent>
       </Dialog>
 
-       <AlertDialog open={isDeleted} onOpenChange={setDelete}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete "{selectedProduct?.name}" ({selectedProduct?.code})? This action will
-                    mark the customer as deleted.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
     </div>
 
     

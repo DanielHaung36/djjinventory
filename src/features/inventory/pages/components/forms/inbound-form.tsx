@@ -331,7 +331,7 @@ export function InboundForm() {
             
           toast({
             title: "手动入库完成",
-            description: `${successMsg}，总价值: ¥${response.total_value.toFixed(2)}`,
+            description: `${successMsg}，总价值: $${response.total_value.toFixed(2)}`,
             variant: response.failed_items > 0 ? "default" : "default"
           })
           
@@ -451,7 +451,7 @@ export function InboundForm() {
             sku: item.sku,
             qty: remainingQty, // 使用标准qty字段
             price: item.unitPrice, // 使用标准price字段
-            quantity: remainingQty, // 保留兼容字段
+            quantity: item.qty, // 保留兼容字段
             unitPrice: item.unitPrice, // 保留兼容字段
             location: "",
             lotNumber: "",

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import {
     Box,
+    Button as MuiButton,
     Card,
     CardContent,
     CardHeader,
     Chip,
     Grid,
-    
     Typography,
 } from "@mui/material";
 import {
@@ -27,7 +27,14 @@ import {
   ClipboardList,
 } from "lucide-react"
 
-import type {WorkflowStep,SalesOrder } from "../types/sales-order"// Adjust the import path as necessary
+import type { WorkflowStep, SalesOrder } from "../types/sales-order"
+import { 
+  ORDER_STATUS, 
+  ORDER_STATUS_LABELS, 
+  ORDER_STATUS_FLOW,
+  getStatusLabel,
+  getStatusColor
+} from "../constants/order-status"
 
 
 import {
@@ -49,135 +56,195 @@ import OrderClosedStage from "../stages/order-closed"
 import OrderSummaryWidget from "./order-summary-widget"
 import type { OrderItem } from "../types/sales-order"
 import type { ViewMode } from '../Salesorderdetail'; // Adjust the import path as necessary
+import OrderDocumentUploadDialog from './dialogs/order-document-upload-dialog'
 
 interface WorkflowStepProps {
-    completedSteps: number;
-    //  workflowSteps: WorkflowStep[]
-     setViewMode: React.Dispatch<React.SetStateAction<ViewMode>>;
-     viewMode: ViewMode;
+    order: SalesOrder; // Pass in actual order data
+    setViewMode: React.Dispatch<React.SetStateAction<ViewMode>>;
+    viewMode: ViewMode;
     setIsPickingListOpen: (open: boolean) => void;
     selectedStep: number;
     setSelectedStep: React.Dispatch<React.SetStateAction<number>>;
+    onProgressOrder?: (action: string) => Promise<void>; // New prop for handling progression
+    loading?: boolean; // Loading state for progression actions
 }
 
-const workflowSteps: WorkflowStep[] = [
-  {
-    id: 1,
-    title: "Deposit Received",
-    status: "completed",
-    date: "2025-05-02",
-    description: "Initial payment confirmed",
+// Workflow step configuration mapping
+const STEP_CONFIG = {
+  [ORDER_STATUS.DRAFT]: {
+    title: "Draft",
+    description: "Order being created",
+    icon: "draft"
   },
-  {
-    id: 2,
+  [ORDER_STATUS.ORDERED]: {
     title: "Order Placed",
-    status: "completed",
-    date: "2025-05-03",
     description: "Order officially submitted",
+    icon: "order"
   },
-  {
-    id: 3,
+  [ORDER_STATUS.DEPOSIT_RECEIVED]: {
+    title: "Deposit Received", 
+    description: "Initial payment confirmed",
+    icon: "payment"
+  },
+  [ORDER_STATUS.FINAL_PAYMENT_RECEIVED]: {
     title: "Final Payment",
-    status: "pending",
-    description: "Awaiting final payment",
+    description: "Final payment completed",
+    icon: "payment"
   },
-  {
-    id: 4,
+  [ORDER_STATUS.PRE_DELIVERY_INSPECTION]: {
     title: "Pre-Delivery Inspection",
-    status: "current",
     description: "Quality assurance in progress",
+    icon: "inspection"
   },
-  {
-    id: 5,
-    title: "Shipment",
-    status: "pending",
-    description: "Ready for dispatch",
+  [ORDER_STATUS.SHIPPED]: {
+    title: "Shipped",
+    description: "Items have been shipped",
+    icon: "shipping"
   },
-  {
-    id: 6,
+  [ORDER_STATUS.DELIVERED]: {
+    title: "Delivered",
+    description: "Items delivered to customer",
+    icon: "delivered"
+  },
+  [ORDER_STATUS.ORDER_CLOSED]: {
     title: "Order Closed",
-    status: "pending",
-    description: "Final completion",
+    description: "Order completed and closed",
+    icon: "closed"
   },
-]
+  [ORDER_STATUS.CANCELLED]: {
+    title: "Cancelled",
+    description: "Order has been cancelled",
+    icon: "cancelled"
+  }
+};
+
+// Generate workflow steps based on order data
+const generateWorkflowSteps = (order: SalesOrder): WorkflowStep[] => {
+  const currentStatusIndex = ORDER_STATUS_FLOW.indexOf(order.status as any);
+  const isCompleted = order.status === ORDER_STATUS.ORDER_CLOSED;
+  const isCancelled = order.status === ORDER_STATUS.CANCELLED;
+  
+  return ORDER_STATUS_FLOW.map((status, index) => {
+    const config = STEP_CONFIG[status];
+    let stepStatus: WorkflowStep["status"] = "pending";
+    let stepDate: string | undefined;
+    
+    // Determine step status
+    if (isCancelled && index > currentStatusIndex) {
+      stepStatus = "pending";
+    } else if (index < currentStatusIndex || (index === currentStatusIndex && isCompleted)) {
+      stepStatus = "completed";
+    } else if (index === currentStatusIndex) {
+      stepStatus = "current";
+    }
+    
+    // Set step date based on order timestamp fields
+    switch (status) {
+      case ORDER_STATUS.ORDERED:
+        stepDate = order.orderDate;
+        break;
+      case ORDER_STATUS.DEPOSIT_RECEIVED:
+        stepDate = order.depositPaidAt;
+        break;
+      case ORDER_STATUS.FINAL_PAYMENT_RECEIVED:
+        stepDate = order.finalPaidAt;
+        break;
+      case ORDER_STATUS.PRE_DELIVERY_INSPECTION:
+        stepDate = order.pdCompletedAt;
+        break;
+      case ORDER_STATUS.SHIPPED:
+        stepDate = order.shippedAt;
+        break;
+      case ORDER_STATUS.DELIVERED:
+        stepDate = order.deliveredAt;
+        break;
+    }
+    
+    return {
+      id: index + 1,
+      title: config.title,
+      status: stepStatus,
+      date: stepDate ? new Date(stepDate).toLocaleDateString() : undefined,
+      description: config.description
+    };
+  });
+};
 
 
 
-// Sample order items for demo
-const sampleOrderItems: OrderItem[] = [
-  {
-    id: "item-1",
-    name: "LM930 Wheel Loader",
-    description: "Base model with standard configuration",
-    quantity: 1,
-    unitPrice: 38000,
-    totalPrice: 38000,
-    image: "/placeholder.svg?height=200&width=200",
-    specifications: [
-      "Engine: 175 HP Diesel Engine",
-      "Operating Weight: 13,500 kg",
-      "Bucket Capacity: 2.5 m³",
-      "Max Speed: 38 km/h",
-      "Fuel Tank: 250 L",
-    ],
-  },
-  {
-    id: "item-2",
-    name: "Extended Warranty Package",
-    description: "3-year extended warranty coverage",
-    quantity: 1,
-    unitPrice: 3500,
-    totalPrice: 3500,
-    specifications: [
-      "Duration: 3 years",
-      "Covers all mechanical components",
-      "Includes annual maintenance visits",
-      "24/7 support hotline",
-    ],
-  },
-  {
-    id: "item-3",
-    name: "Premium Operator Cabin Upgrade",
-    description: "Enhanced comfort and features for operator cabin",
-    quantity: 1,
-    unitPrice: 2800,
-    totalPrice: 2800,
-    image: "/placeholder.svg?height=200&width=200",
-    specifications: [
-      "Climate Control System",
-      "Ergonomic Seat with Air Suspension",
-      "7-inch Touchscreen Display",
-      "Bluetooth Connectivity",
-      "Enhanced Sound Insulation",
-    ],
-  },
-  {
-    id: "item-4",
-    name: "Hydraulic Quick Coupler",
-    description: "For rapid attachment changes",
-    quantity: 1,
-    unitPrice: 700,
-    totalPrice: 700,
-    specifications: ["Compatible with all standard attachments", "Hydraulic locking system", "Safety lock indicator"],
-  },
-]
+// Sample data removed - now using actual order data passed as props
 
-// Sample order data for demo
-const sampleOrder: SalesOrder = {
-  orderNumber: "ORD-2025050301",
-  customer: "ABC Construction Co.",
-  machineModel: "LM930 Wheel Loader",
-  orderDate: "2025-05-02",
-  eta: "2025-05-15",
-  total: 45000,
-  quoteNumber: "QUO-2025040289",
-  quoteDate: "2025-04-28",
-  createdBy: "Michael Smith",
-  quoteContent: "Standard equipment package with extended warranty and premium operator cabin",
-  items: sampleOrderItems,
-}
+// Get available actions for current order status
+const getAvailableActions = (currentStatus: string) => {
+  const actions = {
+    [ORDER_STATUS.ORDERED]: [{ 
+      action: 'deposit-payment', 
+      label: 'Mark Deposit Received', 
+      icon: DollarSign,
+      requiresUpload: true,
+      uploadType: 'deposit_receipt'
+    }],
+    [ORDER_STATUS.DEPOSIT_RECEIVED]: [{ 
+      action: 'final-payment', 
+      label: 'Mark Final Payment', 
+      icon: DollarSign,
+      requiresUpload: true,
+      uploadType: 'final_payment_receipt'
+    }],
+    [ORDER_STATUS.FINAL_PAYMENT_RECEIVED]: [{ 
+      action: 'pd-complete', 
+      label: 'Complete PD Inspection', 
+      icon: FileCheck,
+      requiresUpload: true,
+      uploadType: 'pd_report'
+    }],
+    [ORDER_STATUS.PRE_DELIVERY_INSPECTION]: [{ 
+      action: 'ship', 
+      label: 'Mark as Shipped', 
+      icon: Package,
+      requiresUpload: true,
+      uploadType: 'shipping_doc'
+    }],
+    [ORDER_STATUS.SHIPPED]: [{ 
+      action: 'deliver', 
+      label: 'Mark as Delivered', 
+      icon: CheckCircle,
+      requiresUpload: true,
+      uploadType: 'delivery_confirmation'
+    }],
+    [ORDER_STATUS.DELIVERED]: [{ 
+      action: 'close-order', 
+      label: 'Close Order', 
+      icon: CheckCircle,
+      requiresUpload: false
+    }],
+  };
+  return actions[currentStatus] || [];
+};
 
-const TimeLine = ({completedSteps,viewMode,setViewMode,selectedStep,setSelectedStep}: WorkflowStepProps) => {
+const TimeLine = ({ order, viewMode, setViewMode, selectedStep, setSelectedStep, onProgressOrder, loading = false }: WorkflowStepProps) => {
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [currentUploadType, setCurrentUploadType] = useState<'deposit_receipt' | 'final_payment_receipt' | 'pd_report' | 'shipping_doc' | 'delivery_confirmation'>('deposit_receipt');
+  
+  const workflowSteps = generateWorkflowSteps(order);
+  const completedSteps = workflowSteps.filter(step => step.status === "completed").length;
+  const availableActions = getAvailableActions(order.status);
+
+  // Handle action click - show upload dialog if required, or execute directly
+  const handleActionClick = (actionConfig: any) => {
+    if (actionConfig.requiresUpload) {
+      setCurrentUploadType(actionConfig.uploadType);
+      setUploadDialogOpen(true);
+    } else {
+      onProgressOrder?.(actionConfig.action);
+    }
+  };
+
+  // Handle successful upload and workflow progression
+  const handleUploadSuccess = () => {
+    setUploadDialogOpen(false);
+    onProgressOrder?.('refresh'); // Trigger a refresh of the order data
+  };
  
     const getStepIcon = (status: WorkflowStep["status"]) => {
       switch (status) {
@@ -193,6 +260,28 @@ const TimeLine = ({completedSteps,viewMode,setViewMode,selectedStep,setSelectedS
 
     
 
+    // Get action buttons for current step
+    const getStepActions = (step: WorkflowStep, stepIndex: number) => {
+      const currentStatusIndex = ORDER_STATUS_FLOW.indexOf(order.status as any);
+      
+      // Only show actions for current step
+      if (stepIndex !== currentStatusIndex || step.status !== 'current') {
+        return null;
+      }
+      
+      return availableActions.map((actionConfig, index) => (
+        <button
+          key={index}
+          onClick={() => onProgressOrder?.(actionConfig.action)}
+          disabled={loading}
+          className="ml-2 p-1 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+          title={actionConfig.label}
+        >
+          <actionConfig.icon className="w-4 h-4" />
+        </button>
+      ));
+    };
+    
     const getEditButton = (stepId: number) => {
       const editActions = {
         1: () => setViewMode("edit-deposit"),
@@ -269,16 +358,43 @@ const TimeLine = ({completedSteps,viewMode,setViewMode,selectedStep,setSelectedS
                       {getStepIcon(step.status)}
                     </Box>
                     <Box flexGrow={1} minWidth={0}>
-                      <Box sx={{ display: "flex", alignItems: "center",justifyContent: "space-between" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <Typography variant="h6" fontWeight="600" mb={0.5}>
-                        {step.title}
-                      </Typography>
-                       {getEditButton(step.id)}
+                          {step.title}
+                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          {getStepActions(step, index)}
+                          {getEditButton(step.id)}
+                        </Box>
                       </Box>
                
                       <Typography variant="body2" color="text.secondary" mb={1}>
                         {step.description}
                       </Typography>
+                      
+                      {/* Show available actions for current step */}
+                      {step.status === 'current' && availableActions.length > 0 && (
+                        <Box sx={{ mt: 1 }}>
+                          {availableActions.map((actionConfig, actionIndex) => (
+                            <MuiButton
+                              key={actionIndex}
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              disabled={loading}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleActionClick(actionConfig);
+                              }}
+                              startIcon={<actionConfig.icon size={16} />}
+                              sx={{ mr: 1, mb: 1 }}
+                            >
+                              {loading ? 'Processing...' : actionConfig.label}
+                            </MuiButton>
+                          ))}
+                        </Box>
+                      )}
+                      
                       {step.date && (
                         <Chip label={step.date} size="small" variant="outlined" sx={{ fontSize: "0.75rem" }} />
                       )}
@@ -301,6 +417,15 @@ const TimeLine = ({completedSteps,viewMode,setViewMode,selectedStep,setSelectedS
               ))}
             </CardContent>
           </Card>
+
+          {/* Upload Dialog */}
+          <OrderDocumentUploadDialog
+            open={uploadDialogOpen}
+            onClose={() => setUploadDialogOpen(false)}
+            orderId={order.id}
+            documentType={currentUploadType}
+            onSuccess={handleUploadSuccess}
+          />
         </Grid>
   )
 }

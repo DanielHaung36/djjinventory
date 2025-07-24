@@ -152,6 +152,18 @@ export const orderApi = {
     return response.data
   },
 
+  // 标记为已送达
+  async processDelivery(id: number): Promise<{ message: string }> {
+    const response = await api.put(`orders/${id}/deliver`)
+    return response.data
+  },
+
+  // 关闭订单
+  async closeOrder(id: number): Promise<{ message: string }> {
+    const response = await api.put(`orders/${id}/close`)
+    return response.data
+  },
+
   // 取消订单
   async cancelOrder(id: number, reason: string): Promise<{ message: string }> {
     const response = await api.put(`orders/${id}/cancel`, { reason })
@@ -161,6 +173,54 @@ export const orderApi = {
   // 获取订单统计
   async getOrderStats(): Promise<{ data: Record<string, number> }> {
     const response = await api.get('orders/stats')
+    return response.data
+  },
+
+  // 上传订单文档
+  async uploadOrderDocuments(formData: FormData): Promise<{ message: string; documents: any[] }> {
+    const response = await api.post('orders/upload-documents', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  // 获取订单文档列表
+  async getOrderDocuments(orderId: number): Promise<{ data: any[] }> {
+    const response = await api.get(`orders/${orderId}/documents`)
+    return response.data
+  },
+
+  // 删除订单文档
+  async deleteOrderDocument(documentId: number): Promise<{ message: string }> {
+    const response = await api.delete(`orders/documents/${documentId}`)
+    return response.data
+  },
+
+  // 审批订单操作
+  async approveOrderAction(id: number, action: string, comments?: string, documents?: string[]): Promise<{ message: string }> {
+    const response = await api.put(`orders/${id}/approve`, { 
+      action, 
+      comments, 
+      documents 
+    })
+    return response.data
+  },
+
+  // 拒绝订单操作
+  async rejectOrderAction(id: number, action: string, reason: string, comments?: string): Promise<{ message: string }> {
+    const response = await api.put(`orders/${id}/reject`, { 
+      action, 
+      reason, 
+      comments 
+    })
+    return response.data
+  },
+
+  // 获取订单审批历史
+  async getOrderApprovalHistory(id: number): Promise<{ data: any[]; total: number }> {
+    const response = await api.get(`orders/${id}/approval-history`)
     return response.data
   }
 }

@@ -32,17 +32,28 @@ const statusTabs = [
   { label: '已取消', value: 'cancelled' }
 ]
 
-const OrderManagementPage: React.FC = () => {
+interface OrderManagementPageProps {
+  initialFilter?: string
+}
+
+const OrderManagementPage: React.FC<OrderManagementPageProps> = ({ 
+  initialFilter = 'all' 
+}) => {
   const navigate = useNavigate()
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedTab, setSelectedTab] = useState('all')
+  const [selectedTab, setSelectedTab] = useState(initialFilter)
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [actionType, setActionType] = useState<string>('')
   const [cancelReason, setCancelReason] = useState('')
+
+  // 响应外部filter变化
+  useEffect(() => {
+    setSelectedTab(initialFilter)
+  }, [initialFilter])
 
   // 加载订单数据
   useEffect(() => {

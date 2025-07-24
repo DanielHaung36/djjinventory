@@ -4,26 +4,30 @@ import { Box, Button, IconButton, LinearProgress, Stack, Typography } from '@mui
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import FileTextIcon from '@mui/icons-material/Description';
-import type { SalesOrder, WorkflowStep } from "../types/sales-order"// Adjust the import path as necessary
+import type { SalesOrder } from "../types/sales-order"
+import { ORDER_STATUS_FLOW } from "../constants/order-status"
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { ClipboardList, Plus, Download, FileText } from 'lucide-react';
 import type { ViewMode } from '../Salesorderdetail'; // Adjust the import path as necessary
 interface DetailHeaderProps {
     order: SalesOrder;
-    workflowSteps: WorkflowStep[]
     setIsPickingListOpen: (open: boolean) => void;
     setViewMode: React.Dispatch<React.SetStateAction<ViewMode>>;
 }
 
 
-const DetailHeader = ({ order, workflowSteps,setIsPickingListOpen,setViewMode }: DetailHeaderProps) => {
+const DetailHeader = ({ order, setIsPickingListOpen, setViewMode }: DetailHeaderProps) => {
     const navigate = useNavigate();
     const onBack = () => {
         navigate("/sales/overview");
     };
-    const completedSteps = workflowSteps.filter((step) => step.status === "completed").length
-    const progressPercentage = (completedSteps / workflowSteps.length) * 100
+    
+    // 动态计算进度
+    const currentStatusIndex = ORDER_STATUS_FLOW.indexOf(order.status as any);
+    const completedSteps = Math.max(0, currentStatusIndex + (order.status === 'order_closed' ? 1 : 0));
+    const totalSteps = ORDER_STATUS_FLOW.length;
+    const progressPercentage = (completedSteps / totalSteps) * 100;
 
     return (
         <Box className="header" display="flex" alignItems="center">

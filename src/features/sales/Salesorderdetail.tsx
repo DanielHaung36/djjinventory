@@ -15,6 +15,8 @@ import {
   Paper,
   Stack,
   Alert,
+  Tabs,
+  Tab,
 } from "@mui/material"
 import OrderSummary from "./components/OrderSummary"
 
@@ -25,52 +27,14 @@ import DetailHeader from "./components/DetailHeader"
 import PickingListDrawer from "./picking-list-drawer"
 import StageOverview from "./stages/StageOverivew"
 import OrderDetailsTable from "./components/order-details-table"
+import OrderDocumentDisplay from "./components/order-document-display"
 interface SalesOrderDetailProps {
   order: SalesOrder
   onBack: () => void
   onOrderUpdate?: (orderId: string) => void
 }
 
-export const workflowSteps: WorkflowStep[] = [
-  {
-    id: 1,
-    title: "Deposit Received",
-    status: "completed",
-    date: "2025-05-02",
-    description: "Initial payment confirmed",
-  },
-  {
-    id: 2,
-    title: "Order Placed",
-    status: "completed",
-    date: "2025-05-03",
-    description: "Order officially submitted",
-  },
-  {
-    id: 3,
-    title: "Final Payment",
-    status: "pending",
-    description: "Awaiting final payment",
-  },
-  {
-    id: 4,
-    title: "Pre-Delivery Inspection",
-    status: "current",
-    description: "Quality assurance in progress",
-  },
-  {
-    id: 5,
-    title: "Shipment",
-    status: "pending",
-    description: "Ready for dispatch",
-  },
-  {
-    id: 6,
-    title: "Order Closed",
-    status: "pending",
-    description: "Final completion",
-  },
-]
+// 移除硬编码的工作流步骤，现在由 WorkflowStep 组件动态生成
 // Sample order items for demo
 export const sampleOrderItems: OrderItem[] = [
   {
@@ -154,9 +118,23 @@ export function SalesOrderDetail({ order, onBack, onOrderUpdate }: SalesOrderDet
   const [selectedStep, setSelectedStep] = useState<number>(4)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState(0)
 
-  const completedSteps = workflowSteps.filter((step) => step.status === "completed").length
-  const progressPercentage = (completedSteps / workflowSteps.length) * 100
+  // 转换后端 OrderItem 数据为前端组件期望的格式
+  const transformOrderItems = (items: any[]) => {
+    return items?.map(item => ({
+      id: item.id.toString(),
+      name: item.product?.nameEn || item.product?.nameCn || item.description || 'Unknown Product',
+      description: item.description || '',
+      quantity: item.quantity || 0,
+      unitPrice: item.unitPrice || 0,
+      totalPrice: item.totalPrice || 0,
+      image: item.product?.image || "/placeholder.svg?height=200&width=200",
+      specifications: item.specifications ? item.specifications.split('\n').filter(Boolean) : []
+    })) || []
+  }
+
+  // 这些变量已经被移动到各自的组件内部进行动态计算
   const [isPickingListOpen, setIsPickingListOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("detail")
 
@@ -168,10 +146,10 @@ export function SalesOrderDetail({ order, onBack, onOrderUpdate }: SalesOrderDet
     setError(null)
     
     try {
-      // 导入orderApi
+      // Import orderApi
       const { orderApi } = await import('../../api/orderApi')
       
-      // 根据不同的action调用相应的API
+      // Call appropriate API based on action
       switch (action) {
         case 'deposit-payment':
           await orderApi.processDepositPayment(order.id)
@@ -185,19 +163,28 @@ export function SalesOrderDetail({ order, onBack, onOrderUpdate }: SalesOrderDet
         case 'ship':
           await orderApi.processShipment(order.id)
           break
+        case 'deliver':
+          await orderApi.processDelivery(order.id)
+          break
+        case 'close-order':
+          await orderApi.closeOrder(order.id)
+          break
+        case 'refresh':
+          // Just refresh the order data without making additional API calls
+          break
         default:
-          throw new Error(`未知操作: ${action}`)
+          throw new Error(`Unknown action: ${action}`)
       }
       
       console.log(`Successfully proceeded with action: ${action} for order ${order.id}`)
       
-      // 刷新订单数据
+      // Refresh order data
       if (onOrderUpdate) {
         await onOrderUpdate(order.orderNumber)
       }
     } catch (err) {
       console.error('Error proceeding with action:', err)
-      setError(`操作失败: ${err.message}`)
+      setError(`Operation failed: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -209,7 +196,7 @@ export function SalesOrderDetail({ order, onBack, onOrderUpdate }: SalesOrderDet
       <ViewModePage
         viewMode={viewMode}
         setViewMode={setViewMode}
-        sampleOrder={sampleOrder}
+        order={order}
         isPickingListOpen={isPickingListOpen}
         setIsPickingListOpen={setIsPickingListOpen}
       />
@@ -234,7 +221,7 @@ export function SalesOrderDetail({ order, onBack, onOrderUpdate }: SalesOrderDet
             color: "white",
           }}
         >
-          <DetailHeader order={order} workflowSteps={workflowSteps} setIsPickingListOpen={setIsPickingListOpen} setViewMode={setViewMode} />
+          <DetailHeader order={order} setIsPickingListOpen={setIsPickingListOpen} setViewMode={setViewMode} />
         </Paper>
 
         {/* Error Display */}
@@ -297,26 +284,72 @@ export function SalesOrderDetail({ order, onBack, onOrderUpdate }: SalesOrderDet
 
         <Grid className="workflow" container spacing={4} sx={{flexWrap:'nowrap'}}>
           {/* Enhanced Workflow Steps Sidebar */}
-          <TimeLine completedSteps={completedSteps} setViewMode={setViewMode} viewMode={viewMode} setIsPickingListOpen={setIsPickingListOpen} selectedStep={selectedStep} setSelectedStep={setSelectedStep}/>
+          <TimeLine 
+            order={order} 
+            setViewMode={setViewMode} 
+            viewMode={viewMode} 
+            setIsPickingListOpen={setIsPickingListOpen} 
+            selectedStep={selectedStep} 
+            setSelectedStep={setSelectedStep}
+            onProgressOrder={handleProceed}
+            loading={loading}
+          />
           {/* Enhanced Main Content */}
           <Grid className="main-content"  item xs={12} lg={8} container direction="column" spacing={4} sx={{ position: "relative", flexGrow: 1,display:"flex" }}>
             {/* Enhanced Order Summary */}
             <OrderSummary order={order} />
-            {/* Enhanced Current Step Details */}
-          {/* Order Details Table */}
-          {sampleOrder.items && sampleOrder.items.length > 0 && selectedStep===1 && (
-            <OrderDetailsTable items={sampleOrder.items} currency="$" />
-          )}
-
-            {
-              <StageOverview selectedStep={selectedStep} />
-            }
-            {/* Enhanced Order Details */}
+            
+            {/* Tab Navigation */}
+            <Card>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+                  <Tab label="Order Details" />
+                  <Tab label="Documents" />
+                  <Tab label="Stage Overview" />
+                </Tabs>
+              </Box>
+              
+              <CardContent>
+                {/* Tab Content */}
+                {activeTab === 0 && (
+                  <Box>
+                    {/* Order Details Table */}
+                    {order.items && order.items.length > 0 && (
+                      <OrderDetailsTable items={transformOrderItems(order.items)} currency={order.currency || "AUD"} />
+                    )}
+                  </Box>
+                )}
+                
+                {activeTab === 1 && (
+                  <Box>
+                    {/* Order Documents */}
+                    {order?.id && (
+                      <OrderDocumentDisplay 
+                        orderId={order.id}
+                        onDocumentDeleted={() => {
+                          // Optionally refresh order data when document is deleted
+                          if (onOrderUpdate) {
+                            onOrderUpdate(order.orderNumber);
+                          }
+                        }}
+                      />
+                    )}
+                  </Box>
+                )}
+                
+                {activeTab === 2 && (
+                  <Box>
+                    {/* Stage Overview */}
+                    <StageOverview selectedStep={selectedStep} />
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
 
           </Grid>
         </Grid>
 
-        <PickingListDrawer isOpen={isPickingListOpen} onClose={() => setIsPickingListOpen(false)} order={sampleOrder} />
+        <PickingListDrawer isOpen={isPickingListOpen} onClose={() => setIsPickingListOpen(false)} order={order} />
       </Box>
     )
   }

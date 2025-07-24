@@ -10,6 +10,7 @@ import { productsApi } from '../features/products/productsApi';
 import { uploadApi } from '../features/products/uploadProductApi';
 import { inventoryApi } from '../features/inventory/inventoryApi';
 import { quotesApi } from '../features/quotes/quotesApi';
+import { salesApi } from '../features/sales/salesApi';
 export const store = configureStore({
   reducer: {
     //slice reducers
@@ -22,6 +23,7 @@ export const store = configureStore({
     [uploadApi.reducerPath]:uploadApi.reducer,
     [inventoryApi.reducerPath]: inventoryApi.reducer,
     [quotesApi.reducerPath]: quotesApi.reducer,
+    [salesApi.reducerPath]: salesApi.reducer,
 
     // products: productsReducer,
   },
@@ -36,6 +38,7 @@ export const store = configureStore({
           .concat(uploadApi.middleware)
           .concat(inventoryApi.middleware)
           .concat(quotesApi.middleware)
+          .concat(salesApi.middleware)
 
 });
 

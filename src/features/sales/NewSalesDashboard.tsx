@@ -49,6 +49,7 @@ const NewSalesDashboard: React.FC = () => {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = useState('all')
 
   useEffect(() => {
     loadDashboardStats()
@@ -62,21 +63,21 @@ const NewSalesDashboard: React.FC = () => {
       // 并行获取各状态的订单数量
       const [
         allOrders,
-        depositOrders,
+        pendingDepositOrders,
         finalPaymentOrders,
         pdOrders,
         shipmentOrders
       ] = await Promise.all([
         orderApi.getOrders({ page: 1, limit: 1 }),
+        orderApi.getOrdersByStatus('ordered', 1, 1),
         orderApi.getOrdersByStatus('deposit_received', 1, 1),
-        orderApi.getOrdersByStatus('final_payment_received', 1, 1),
         orderApi.getOrdersByStatus('pre_delivery_inspection', 1, 1),
-        orderApi.getOrdersByStatus('shipped', 1, 1)
+        orderApi.getOrdersByStatus('final_payment_received', 1, 1)
       ])
 
       setStats({
         totalOrders: allOrders.total,
-        pendingDeposits: depositOrders.total,
+        pendingDeposits: pendingDepositOrders.total,
         pendingFinalPayments: finalPaymentOrders.total,
         pendingPDChecks: pdOrders.total,
         pendingShipments: shipmentOrders.total,
@@ -91,6 +92,14 @@ const NewSalesDashboard: React.FC = () => {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue)
+  }
+
+  const handleFilterChange = (filter: string) => {
+    setActiveFilter(filter)
+    // 可以在这里添加过滤逻辑，比如切换到订单管理页面并应用过滤
+    if (filter !== 'all') {
+      setCurrentTab(1) // 切换到订单管理页面
+    }
   }
 
   return (
@@ -122,7 +131,11 @@ const NewSalesDashboard: React.FC = () => {
       )}
 
       {/* Stats Cards */}
-      <StatsCards stats={stats} />
+      <StatsCards 
+        stats={stats} 
+        onFilterChange={handleFilterChange}
+        activeFilter={activeFilter}
+      />
 
       {/* Tab Navigation */}
       <Card sx={{ mt: 3 }}>
@@ -151,7 +164,7 @@ const NewSalesDashboard: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={currentTab} index={1}>
-          <OrderManagementPage />
+          <OrderManagementPage initialFilter={activeFilter} />
         </TabPanel>
       </Card>
     </Box>

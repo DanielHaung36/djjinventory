@@ -12,12 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import type { Product, ProductImage,ProductStatus } from "./types"
+import type { Product, ProductFormData, ProductImage, ProductStatus } from "./types"
 import { useUploadFilesMutation, useDeleteFileMutation } from "./uploadProductApi"
+import { useProductPermissions } from "./hooks/useProductPermissions"
 
 interface ProductFormProps {
   product?: Product
-  onSave: (product: Omit<Product, "id" | "version" | "created_at" | "updated_at">) => void
+  onSave: (product: ProductFormData) => void
   onCancel: () => void
   isLoading?: boolean
 }
@@ -36,14 +37,46 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
   const [uploadFiles] = useUploadFilesMutation()
   const [deleteFile] = useDeleteFileMutation()
   const [isUploading, setIsUploading] = useState(false)
+  const permissions = useProductPermissions()
 
-  const [formData, setFormData] = useState<Partial<Product>>(
-    product || {
-      djj_code: "",
-      status: "draft",
+  const [formData, setFormData] = useState<ProductFormData>(
+    product ? {
+      // 如果是编辑模式，从现有产品数据中提取表单数据（不包含djj_code）
+      status: product.status,
+      application_status: product.application_status,
+      supplier: product.supplier,
+      manufacturer_code: product.manufacturer_code,
+      category: product.category,
+      subcategory: product.subcategory,
+      tertiary_category: product.tertiary_category,
+      name_cn: product.name_cn,
+      name_en: product.name_en,
+      specs: product.specs,
+      standards: product.standards,
+      unit: product.unit,
+      currency: product.currency,
+      price: product.price,
+      standard_warranty: product.standard_warranty,
+      remarks: product.remarks,
+      weight_kg: product.weight_kg,
+      lift_capacity_kg: product.lift_capacity_kg,
+      lift_height_mm: product.lift_height_mm,
+      power_source: product.power_source,
+      other_specs: product.other_specs,
+      warranty: product.warranty,
+      marketing_info: product.marketing_info,
+      training_docs: product.training_docs,
+      product_url: product.product_url,
+      technical_specs: product.technical_specs,
+      other_info: product.other_info,
+      images: product.images,
+    } : {
+      // 新建模式的默认值（不包含djj_code）
+      status: "draft" as ProductStatus,
+      application_status: "open" as any,
       supplier: "",
       manufacturer_code: "",
-      category: "Parts",
+      category: "Parts" as const,
       subcategory: "",
       tertiary_category: "",
       name_cn: "",
@@ -52,7 +85,7 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
       standards: "",
       unit: "Piece",
       currency: "AUD",
-      rrp_price: 0,
+      price: 0,
       standard_warranty: "",
       remarks: "",
       weight_kg: 0,
@@ -64,16 +97,10 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
       marketing_info: "",
       training_docs: "",
       product_url: "",
-      monthly_sales: 0,
-      total_sales: 0,
-      profit_margin: 0,
-      last_modified_by: "Current User",
-      stocks: [],
-      sales_data: [],
-      images: [],
       technical_specs: null,
       other_info: null,
-    },
+      images: [],
+    }
   )
 
   const [imageStates, setImageStates] = useState<ImageUploadState[]>(
@@ -349,24 +376,30 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
         </TabsList>
 
         <TabsContent value="basic" className="space-y-6">
+          {/* DJJ Code 显示区域 - 仅在编辑模式显示 */}
+          {product && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Label className="font-medium text-blue-800">DJJ Code</Label>
+              </div>
+              <p className="text-lg font-mono font-semibold text-blue-900 mt-1">
+                {product.djj_code}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                Automatically generated - Cannot be modified
+              </p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="djj_code">DJJ Code *</Label>
-              <Input
-                id="djj_code"
-                value={formData.djj_code || ""}
-                onChange={(e) => setFormData({ ...formData, djj_code: e.target.value })}
-                required
-                className="h-10"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status">Status {!permissions.canManageStatus && "(Read-only)"}</Label>
               <Select
                 value={formData.status}
                 onValueChange={(value) => setFormData({ ...formData, status: value as Product["status"] })}
+                disabled={!permissions.canManageStatus}
               >
-                <SelectTrigger className="h-10">
+                <SelectTrigger className={`h-10 ${!permissions.canManageStatus ? 'bg-gray-50 cursor-not-allowed' : ''}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -380,6 +413,11 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
                     <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
+              {!permissions.canManageStatus && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Only administrators can modify product status
+                </p>
+              )}
             </div>
           </div>
 
@@ -565,17 +603,19 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="rrp_price">RRP Price</Label>
-              <Input
-                id="rrp_price"
-                type="number"
-                step="0.01"
-                value={formData.rrp_price || 0}
-                onChange={(e) => setFormData({ ...formData, rrp_price: Number.parseFloat(e.target.value) || 0 })}
-                className="h-10"
-              />
-            </div>
+            {permissions.canViewFinancial && (
+              <div className="space-y-2">
+                <Label htmlFor="price">RRP Price  (Exc. GST)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  value={formData.price || 0}
+                  onChange={(e) => setFormData({ ...formData, price: Number.parseFloat(e.target.value) || 0 })}
+                  className="h-10"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="standard_warranty">Standard Warranty</Label>
               <Input
@@ -587,7 +627,7 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
             </div>
           </div>
 
-          <div className="space-y-4">
+          {/* <div className="space-y-4">
             <Label className="text-lg font-semibold">Stock Levels</Label>
             <div className="grid grid-cols-3 gap-6">
               {stocks.map((stock) => (
@@ -603,7 +643,7 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
 
           <div className="grid grid-cols-3 gap-6">
             <div className="space-y-2">
@@ -626,17 +666,19 @@ export default function ProductForm({ product, onSave, onCancel, isLoading = fal
                 className="h-10"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="profit_margin">Profit Margin</Label>
-              <Input
-                id="profit_margin"
-                type="number"
-                step="0.01"
-                value={formData.profit_margin || 0}
-                onChange={(e) => setFormData({ ...formData, profit_margin: Number.parseFloat(e.target.value) || 0 })}
-                className="h-10"
-              />
-            </div>
+            {permissions.canViewFinancial && (
+              <div className="space-y-2">
+                <Label htmlFor="profit_margin">Profit Margin</Label>
+                <Input
+                  id="profit_margin"
+                  type="number"
+                  step="0.01"
+                  value={formData.profit_margin || 0}
+                  onChange={(e) => setFormData({ ...formData, profit_margin: Number.parseFloat(e.target.value) || 0 })}
+                  className="h-10"
+                />
+              </div>
+            )}
           </div>
         </TabsContent>
 

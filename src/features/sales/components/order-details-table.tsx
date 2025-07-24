@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { X, ChevronRight, ChevronDown, FileText, Download } from "lucide-react"
 
 interface OrderItem {
@@ -62,8 +62,8 @@ export default function OrderDetailsTable({ items, currency = "$" }: OrderDetail
           </thead>
           <tbody className="divide-y divide-gray-200">
             {items.map((item) => (
-              <>
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+              <React.Fragment key={item.id}>
+                <tr className="hover:bg-gray-50 transition-colors">
                   <td className="py-4 px-4">
                     <button
                       onClick={() => toggleItem(item.id)}
@@ -137,7 +137,7 @@ export default function OrderDetailsTable({ items, currency = "$" }: OrderDetail
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tbody>
           <tfoot>

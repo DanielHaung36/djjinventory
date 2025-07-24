@@ -51,7 +51,8 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
+  console.log(dashboardData);
+  
   // 获取看板数据
   useEffect(() => {
     const fetchDashboardData = async () => {
